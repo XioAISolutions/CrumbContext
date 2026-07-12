@@ -26,7 +26,13 @@ jobs:
         run: python scripts/release-check.py
       - name: Compile package and release scripts
         run: python -m compileall -q crumbcontext scripts
-      - run: pytest
+      - name: Run pytest
+        run: |
+          if ! pytest > /tmp/pytest.log 2>&1; then
+            cat /tmp/pytest.log
+            exit 1
+          fi
+          tail -n 20 /tmp/pytest.log
       - run: crumbcontext benchmark --out /tmp/crumbcontext-proof
       - run: test -f /tmp/crumbcontext-proof/report.html
       - run: test -f /tmp/crumbcontext-proof/share-card.svg
