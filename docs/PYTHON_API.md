@@ -28,6 +28,7 @@ from crumbcontext import (
     EvaluationSpec,
     ProviderRequest,
     ProviderResponse,
+    ResolvedProfile,
     RoutePlan,
     RouterConfig,
     RoutedRequestBundle,
@@ -35,7 +36,8 @@ from crumbcontext import (
 ```
 
 - `ContextBlock` is one unit of context with role, kind, recency, reuse, authority, and metadata.
-- `RouterConfig` controls routing policy such as image eligibility and recent-turn retention.
+- `RouterConfig` is the fully resolved routing policy.
+- `ResolvedProfile` associates a named policy with its explicit `RouterConfig`.
 - `ProviderRequest` is the canonical provider-neutral request.
 - `RoutedRequestBundle` contains the routed request, its `RoutePlan`, and the artifact root.
 - `ProviderResponse` normalizes provider text, usage, latency, model, and usage kind.
@@ -67,14 +69,7 @@ blocks = normalize_blocks(
 )
 ```
 
-The function rejects:
-
-- an empty collection;
-- duplicate IDs;
-- empty IDs;
-- unsupported value types.
-
-Unique IDs are required because plans and artifacts use IDs as stable joins.
+The function rejects an empty collection, duplicate or empty IDs, and unsupported value types. Unique IDs are required because plans and artifacts use IDs as stable joins.
 
 ## Build an uncompressed baseline request
 
@@ -93,38 +88,77 @@ print(request.to_dict())
 
 The baseline request preserves original block roles and text without routing transforms. It is useful for measurement and debugging; it is not the cost-optimized path.
 
-## Build a routed request
+## Build a routed request with a named profile
 
 ```python
 from pathlib import Path
 
-from crumbcontext import RouterConfig, build_routed_request
+from crumbcontext import build_routed_request
 
 bundle = build_routed_request(
     "Return JSON containing the exact SHA.",
     blocks,
     Path("routed-context"),
-    config=RouterConfig(
-        vision_allowed=False,
-        recent_turns=2,
-    ),
+    profile="text-only",
+    config_overrides={"recent_turns": 4},
     name="my-agent-task",
 )
 
 print(bundle.request.sha256)
+print(bundle.plan.profile_name)
+print(bundle.plan.resolved_config)
 print(bundle.plan.to_dict())
 print(bundle.artifact_root)
 ```
 
+Available profiles are:
+
+```python
+from crumbcontext import available_profiles
+
+print(available_profiles())
+# ('safe-default', 'text-only', 'cache-heavy', 'strict-exact')
+```
+
+Use `resolve_profile` when the application needs to inspect a policy before routing:
+
+```python
+from crumbcontext import resolve_profile
+
+policy = resolve_profile(
+    "safe-default",
+    {"vision_allowed": False, "recent_turns": 3},
+)
+print(policy.name)       # safe-default+overrides
+print(policy.config)
+```
+
+Applications may still pass an explicit `RouterConfig`:
+
+```python
+from crumbcontext import RouterConfig, build_routed_request
+
+bundle = build_routed_request(
+    "Return JSON containing the exact SHA.",
+    blocks,
+    "routed-context",
+    config=RouterConfig(vision_allowed=False, recent_turns=2),
+)
+```
+
+Mixing an explicit `RouterConfig` with a named profile or profile overrides is rejected so the effective policy is never ambiguous.
+
 The output directory is part of the request contract. Provider payload builders may need it to verify and read image artifacts. Treat it as sensitive because exact sidecars intentionally preserve literal values.
 
-`bundle.to_dict()` gives an inspectable representation containing:
+`bundle.to_dict()` contains:
 
 ```text
 request
 plan
 artifact_root
 ```
+
+The plan records its schema, profile, and complete resolved configuration.
 
 ## Execute through the provider protocol
 
@@ -179,7 +213,6 @@ class InternalProvider:
     model = "internal-model-v1"
 
     def run(self, request: ProviderRequest) -> ProviderResponse:
-        # Call an internal gateway here.
         return ProviderResponse(
             provider=self.name,
             model=self.model,
@@ -233,14 +266,12 @@ The resulting dictionaries preserve the adapter safety behavior documented in [A
 
 CrumbContext deliberately does not require either provider SDK.
 
-## Counterfactual measurement
-
-The existing counterfactual API remains supported:
+## Counterfactual measurement and response redaction
 
 ```python
 from pathlib import Path
 
-from crumbcontext import create_spec, run_counterfactual
+from crumbcontext import create_spec, resolve_profile, run_counterfactual
 
 spec = create_spec(
     "Return JSON containing the exact SHA.",
@@ -252,27 +283,56 @@ spec = create_spec(
         "expect_json": True,
     },
 )
+policy = resolve_profile("text-only")
 
 result = run_counterfactual(
     spec,
     Path("comparison"),
     provider="mock",
-    config=RouterConfig(vision_allowed=False),
+    config=policy.config,
+    profile_name=policy.name,
+    redact_responses=True,
 )
 
 assert result.passed
 ```
 
+`redact_responses=True` removes provider response text from saved JSON and HTML after evaluation. It preserves request/response hashes, provider usage, latency, exact recall, required-rule recall, task completion, response similarity, profile, and resolved configuration. The raw response still exists in process memory while evaluation executes.
+
 For provider-measured evidence, follow [PROVIDER_BENCHMARKS.md](PROVIDER_BENCHMARKS.md). One fixture and model run must not be presented as a universal cost claim.
+
+## Versioned documents
+
+New artifacts contain `schema_version` fields. Supported schema constants are exported from `crumbcontext`:
+
+```python
+from crumbcontext import (
+    COUNTERFACTUAL_RESULT_SCHEMA,
+    COUNTERFACTUAL_SPEC_SCHEMA,
+    PROVIDER_REQUEST_SCHEMA,
+    PROVIDER_RESPONSE_SCHEMA,
+    ROUTE_PLAN_SCHEMA,
+    load_json_document,
+)
+
+report = load_json_document(
+    "counterfactual.json",
+    COUNTERFACTUAL_RESULT_SCHEMA,
+)
+```
+
+A missing schema marker is accepted only as a legacy v0.1 compatibility path. An unknown explicit schema is rejected rather than guessed. See [ROUTING_PROFILES.md](ROUTING_PROFILES.md).
 
 ## Public stability policy
 
-The following are supported public imports:
+The supported public imports include:
 
 ```text
 Anchor
 AnthropicProvider
 BlockInput
+COUNTERFACTUAL_RESULT_SCHEMA
+COUNTERFACTUAL_SPEC_SCHEMA
 ContextBlock
 CounterfactualResult
 CounterfactualSpec
@@ -280,25 +340,36 @@ EvaluationSpec
 Lane
 MockProvider
 OpenAIProvider
+PROVIDER_REQUEST_SCHEMA
+PROVIDER_RESPONSE_SCHEMA
 Provider
 ProviderRequest
 ProviderResponse
+ROUTE_PLAN_SCHEMA
+ResolvedProfile
 RoutePlan
 RoutedBlock
 RoutedRequestBundle
 RouterConfig
+SchemaError
+available_profiles
 build_anthropic_payload
 build_baseline_request
 build_openai_payload
 build_routed_request
 create_spec
+custom_profile
 execute_provider
 extract_anchors
 get_provider
+load_json_document
 normalize_blocks
+require_schema
+resolve_profile
 route_blocks
 run_counterfactual
 sanitize_with_anchors
+validate_router_config
 ```
 
 Before version `1.0`, additions may occur in minor releases. Breaking changes to this documented surface require release notes, a migration path, and an intentional version change. Internal modules may change without that guarantee.
