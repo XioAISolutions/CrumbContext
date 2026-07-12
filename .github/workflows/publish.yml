@@ -8,23 +8,37 @@ permissions:
   contents: read
   id-token: write
 
+concurrency:
+  group: publish-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
 jobs:
   build:
+    if: github.repository == 'XioAISolutions/CrumbContext'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name }}
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: python -m pip install --upgrade build
-      - run: python -m build
+      - run: python -m pip install --upgrade build twine
+      - name: Verify tag, package version, docs, and release metadata
+        run: python scripts/release-check.py --tag "${{ github.event.release.tag_name }}"
+      - name: Build distributions from the release tag
+        run: python -m build
+      - name: Validate wheel and source distribution
+        run: python -m twine check dist/*
       - uses: actions/upload-artifact@v7
         with:
-          name: python-package
+          name: python-package-${{ github.event.release.tag_name }}
           path: dist/
+          if-no-files-found: error
 
   publish:
     needs: build
+    if: github.repository == 'XioAISolutions/CrumbContext'
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -32,6 +46,9 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: python-package
+          name: python-package-${{ github.event.release.tag_name }}
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          print-hash: true
