@@ -14,7 +14,7 @@ The complete launch copy, hashtags, repository topics, social preview, and posti
 - [x] README labels estimates honestly
 - [x] social preview and repository artwork prepared
 - [x] contribution, conduct, security, citation, and issue templates prepared
-- [ ] GitHub repository created
+- [x] GitHub repository created
 - [ ] CI and CodeQL pass on GitHub
 - [ ] social preview uploaded and topics applied
 - [ ] PyPI trusted publisher configured
