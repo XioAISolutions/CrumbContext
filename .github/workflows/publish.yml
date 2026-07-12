@@ -58,24 +58,23 @@ jobs:
       - name: Build checksums, manifest, and SPDX SBOM
         run: |
           CREATED="$(git show -s --format=%cI HEAD)"
+          COMMIT="$(git rev-parse HEAD)"
           python scripts/release_assets.py \
             --input python-dist \
             --output release-dist \
             --tag "${{ github.ref_name }}" \
-            --commit "${{ github.sha }}" \
+            --commit "$COMMIT" \
             --created "$CREATED"
-      - name: Attest wheel and source distribution provenance
+      - name: Attest provenance for every GitHub release asset
         uses: actions/attest@v4
         with:
-          subject-path: |
-            python-dist/*.whl
-            python-dist/*.tar.gz
+          subject-path: release-dist/*
       - name: Attest the SPDX SBOM against the Python distributions
         uses: actions/attest@v4
         with:
           subject-path: |
-            python-dist/*.whl
-            python-dist/*.tar.gz
+            release-dist/*.whl
+            release-dist/*.tar.gz
           sbom-path: release-dist/${{ steps.package.outputs.name }}-${{ steps.package.outputs.version }}.spdx.json
       - name: Upload Python distributions for trusted publishing
         uses: actions/upload-artifact@v7
