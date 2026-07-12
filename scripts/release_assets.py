@@ -9,10 +9,14 @@ import json
 import re
 import shutil
 import sys
-import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10
+    import tomli as tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT_URL = "https://github.com/XioAISolutions/CrumbContext"
@@ -46,7 +50,12 @@ def normalized_created(value: str | None) -> str:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     else:
         parsed = datetime.now(timezone.utc)
-    return parsed.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return (
+        parsed.astimezone(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def build_release_assets(
@@ -70,7 +79,8 @@ def build_release_assets(
     sdists = sorted(input_dir.glob("*.tar.gz"))
     if len(wheels) != 1 or len(sdists) != 1:
         raise ValueError(
-            f"expected exactly one wheel and one source distribution, found {len(wheels)} wheel(s) and {len(sdists)} sdist(s)"
+            "expected exactly one wheel and one source distribution, "
+            f"found {len(wheels)} wheel(s) and {len(sdists)} sdist(s)"
         )
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -108,12 +118,20 @@ def build_release_assets(
         "dependencies": dependencies,
         "artifacts": artifact_records,
         "claims": {
-            "bundled_benchmark": "deterministic planning estimate for one synthetic fixture",
-            "provider_measurements": "must identify provider, model, fixture, request hashes, routing policy, exact recall, task completion, and response quality",
+            "bundled_benchmark": (
+                "deterministic planning estimate for one synthetic fixture"
+            ),
+            "provider_measurements": (
+                "must identify provider, model, fixture, request hashes, routing "
+                "policy, exact recall, task completion, and response quality"
+            ),
         },
     }
     manifest_path = output_dir / f"{name}-{version}-release-manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
     package_spdx = "SPDXRef-Package-CrumbContext"
     packages: list[dict[str, Any]] = [
@@ -145,7 +163,10 @@ def build_release_assets(
     ]
     for index, requirement in enumerate(dependencies, start=1):
         dep_name = dependency_name(requirement)
-        dep_spdx = f"SPDXRef-Dependency-{index}-{re.sub(r'[^A-Za-z0-9.-]', '-', dep_name)}"
+        dep_spdx = (
+            f"SPDXRef-Dependency-{index}-"
+            f"{re.sub(r'[^A-Za-z0-9.-]', '-', dep_name)}"
+        )
         packages.append(
             {
                 "SPDXID": dep_spdx,
@@ -178,7 +199,9 @@ def build_release_assets(
         "dataLicense": "CC0-1.0",
         "SPDXID": "SPDXRef-DOCUMENT",
         "name": f"{name}-{version}",
-        "documentNamespace": f"{PROJECT_URL}/releases/tag/{tag}#spdx-{commit.lower()}",
+        "documentNamespace": (
+            f"{PROJECT_URL}/releases/tag/{tag}#spdx-{commit.lower()}"
+        ),
         "creationInfo": {
             "created": timestamp,
             "creators": [
@@ -190,7 +213,10 @@ def build_release_assets(
         "relationships": relationships,
     }
     sbom_path = output_dir / f"{name}-{version}.spdx.json"
-    sbom_path.write_text(json.dumps(sbom, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    sbom_path.write_text(
+        json.dumps(sbom, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
     checksum_targets = sorted(path for path in output_dir.iterdir() if path.is_file())
     checksums_path = output_dir / "SHA256SUMS.txt"
