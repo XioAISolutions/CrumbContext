@@ -26,6 +26,8 @@ def route_to_directory(
     blocks: list[ContextBlock],
     output_dir: Path,
     config: RouterConfig | None = None,
+    *,
+    profile_name: str = "custom",
 ) -> RoutePlan:
     config = config or RouterConfig()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -33,7 +35,7 @@ def route_to_directory(
     (output_dir / "summaries").mkdir(exist_ok=True)
     (output_dir / "crumbs").mkdir(exist_ok=True)
 
-    plan = route_blocks(blocks, config)
+    plan = route_blocks(blocks, config, profile_name=profile_name)
     plan_by_id = {item.block_id: item for item in plan.blocks}
     all_anchor_lines: list[str] = []
 
