@@ -1,18 +1,21 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 
 from crumbcontext.evidence import (
     EvidenceError,
+    load_report,
     render_summary,
     scan_for_secret_leaks,
     validate_provider_report,
 )
+from crumbcontext.schemas import COUNTERFACTUAL_RESULT_SCHEMA, SchemaError
 
 
-def valid_report() -> dict:
+def valid_report(*, versioned: bool = True) -> dict:
     response = {
         "input_tokens": 100,
         "output_tokens": 20,
@@ -35,7 +38,8 @@ def valid_report() -> dict:
         "response": response,
         "evaluation": evaluation,
     }
-    return {
+    plan = {}
+    report = {
         "passed": True,
         "provider": "openai",
         "model": "model-version",
@@ -51,18 +55,57 @@ def valid_report() -> dict:
             "response_similarity": 0.95,
             "same_task": True,
         },
-        "plan": {},
+        "plan": plan,
         "disclaimer": "fixture-specific evidence",
     }
+    if versioned:
+        report["schema_version"] = COUNTERFACTUAL_RESULT_SCHEMA
+        report["redaction"] = {
+            "response_bodies": True,
+            "hashes_and_evaluation_preserved": True,
+        }
+        plan.update(
+            {
+                "schema_version": "crumbcontext.route-plan.v1",
+                "routing": {
+                    "profile": "text-only",
+                    "config": {"vision_allowed": False},
+                },
+            }
+        )
+    return report
 
 
 def test_valid_provider_report_and_summary():
     report = valid_report()
     validate_provider_report(report, "openai")
     summary = render_summary(report, "openai", "model-version")
+    assert "Evidence schema: `crumbcontext.counterfactual-result.v1`" in summary
+    assert "Routing profile: `text-only`" in summary
+    assert "Saved response bodies redacted: `True`" in summary
     assert "Input-token reduction: 25.0%" in summary
     assert "Exact recall: 3/3" in summary
     assert "Response similarity: 95.0%" in summary
+
+
+def test_legacy_v01_provider_report_remains_readable(tmp_path: Path):
+    report = valid_report(versioned=False)
+    path = tmp_path / "legacy.json"
+    path.write_text(json.dumps(report), encoding="utf-8")
+    loaded = load_report(path)
+    validate_provider_report(loaded, "openai")
+    summary = render_summary(loaded, "openai", "model-version")
+    assert "legacy-v0.1-without-schema" in summary
+    assert "legacy-unspecified" in summary
+
+
+def test_unknown_explicit_schema_is_rejected(tmp_path: Path):
+    report = valid_report()
+    report["schema_version"] = "crumbcontext.counterfactual-result.v99"
+    path = tmp_path / "unknown.json"
+    path.write_text(json.dumps(report), encoding="utf-8")
+    with pytest.raises(SchemaError, match="unsupported schema_version"):
+        load_report(path)
 
 
 def test_rejects_mock_accounting():
@@ -82,6 +125,13 @@ def test_rejects_incomplete_exact_recall():
 def test_rejects_wrong_provider():
     with pytest.raises(EvidenceError, match="does not match"):
         validate_provider_report(valid_report(), "anthropic")
+
+
+def test_versioned_plan_requires_profile_and_config():
+    report = valid_report()
+    report["plan"]["routing"] = {}
+    with pytest.raises(EvidenceError, match="missing a profile name"):
+        validate_provider_report(report, "openai")
 
 
 def test_secret_scan_rejects_leak(tmp_path: Path):
