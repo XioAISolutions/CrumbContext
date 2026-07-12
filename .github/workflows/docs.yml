@@ -81,6 +81,21 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
+  diagnose:
+    if: failure() && github.event_name == 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download documentation failure diagnostics
+        uses: actions/download-artifact@v8
+        with:
+          name: crumbcontext-docs-failure-${{ github.sha }}
+          path: diagnostics
+      - name: Print validator failure
+        run: |
+          echo "--- CrumbContext documentation validator ---"
+          tail -n 80 diagnostics/docs-build.log
+
   deploy:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: build
