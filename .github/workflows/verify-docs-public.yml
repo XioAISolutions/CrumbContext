@@ -1,0 +1,77 @@
+name: Verify public documentation
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/verify-docs-public.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify-public-site:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Pages deployment and fetch public assets
+        run: |
+          set -euo pipefail
+          base="https://xioaisolutions.github.io/CrumbContext"
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error --location \
+              --output /tmp/home.html "$base/"; then
+              break
+            fi
+            if [[ "$attempt" -eq 30 ]]; then
+              echo "Documentation home did not become public after 10 minutes" >&2
+              exit 1
+            fi
+            sleep 20
+          done
+          curl --fail --silent --show-error --location \
+            --output /tmp/python-api.html "$base/python-api/"
+          curl --fail --silent --show-error --location \
+            --output /tmp/search.json "$base/search.json"
+          curl --fail --silent --show-error --location \
+            --output /tmp/site.css "$base/assets/site.css"
+          curl --fail --silent --show-error --location \
+            --output /tmp/site.js "$base/assets/site.js"
+      - name: Validate the deployed documentation contract
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          home = Path('/tmp/home.html').read_text(encoding='utf-8')
+          python_api = Path('/tmp/python-api.html').read_text(encoding='utf-8')
+          search = json.loads(Path('/tmp/search.json').read_text(encoding='utf-8'))
+          css = Path('/tmp/site.css').read_text(encoding='utf-8')
+          javascript = Path('/tmp/site.js').read_text(encoding='utf-8')
+
+          assert '<title>Documentation home · CrumbContext</title>' in home
+          assert '/CrumbContext/assets/site.js' in home
+          assert 'google-analytics' not in home.lower()
+          assert 'cdn.jsdelivr' not in home.lower()
+          assert 'Python integration API' in python_api
+          assert 'build_routed_request' in python_api
+          assert isinstance(search, list) and len(search) >= 10
+          urls = {entry['url'] for entry in search}
+          assert '/CrumbContext/' in urls
+          assert '/CrumbContext/python-api/' in urls
+          assert '/CrumbContext/provider-benchmarks/' in urls
+          assert '--cyan:' in css
+          assert 'fetch(`${basePath}search.json`' in javascript
+          PY
+      - name: Write public verification summary
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          # CrumbContext documentation is public
+
+          Verified from a clean GitHub-hosted runner:
+
+          - documentation home;
+          - deep Python API page;
+          - local search index;
+          - local CSS and JavaScript;
+          - repository-scoped links;
+          - no analytics or CDN runtime scripts.
+          EOF
