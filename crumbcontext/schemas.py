@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 ROUTE_PLAN_SCHEMA = "crumbcontext.route-plan.v1"
+BENCHMARK_RESULT_SCHEMA = "crumbcontext.benchmark-result.v1"
 COUNTERFACTUAL_SPEC_SCHEMA = "crumbcontext.counterfactual-spec.v1"
 COUNTERFACTUAL_RESULT_SCHEMA = "crumbcontext.counterfactual-result.v1"
 PROVIDER_REQUEST_SCHEMA = "crumbcontext.provider-request.v1"
@@ -13,6 +14,7 @@ PROVIDER_RESPONSE_SCHEMA = "crumbcontext.provider-response.v1"
 SUPPORTED_SCHEMAS = frozenset(
     {
         ROUTE_PLAN_SCHEMA,
+        BENCHMARK_RESULT_SCHEMA,
         COUNTERFACTUAL_SPEC_SCHEMA,
         COUNTERFACTUAL_RESULT_SCHEMA,
         PROVIDER_REQUEST_SCHEMA,
@@ -91,6 +93,7 @@ def load_json_document(
 
 
 __all__ = [
+    "BENCHMARK_RESULT_SCHEMA",
     "COUNTERFACTUAL_RESULT_SCHEMA",
     "COUNTERFACTUAL_SPEC_SCHEMA",
     "PROVIDER_REQUEST_SCHEMA",
