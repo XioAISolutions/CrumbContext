@@ -15,13 +15,40 @@ from .counterfactual import (
     run_counterfactual,
 )
 from .demo import counterfactual_payload, write_counterfactual, write_demo
-from .router import RouterConfig, route_blocks
+from .profiles import ResolvedProfile, available_profiles, resolve_profile
+from .router import route_blocks
 
 
-def _config(args) -> RouterConfig:
-    return RouterConfig(
-        vision_allowed=not getattr(args, "no_images", False),
-        recent_turns=getattr(args, "recent_turns", 2),
+def _policy(args) -> ResolvedProfile:
+    overrides = {}
+    if getattr(args, "no_images", False):
+        overrides["vision_allowed"] = False
+    recent_turns = getattr(args, "recent_turns", None)
+    if recent_turns is not None:
+        overrides["recent_turns"] = recent_turns
+    return resolve_profile(
+        getattr(args, "profile", "safe-default"),
+        overrides,
+    )
+
+
+def _add_routing_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--profile",
+        choices=available_profiles(),
+        default="safe-default",
+        help="Named routing policy; resolved values are stored in the plan",
+    )
+    parser.add_argument(
+        "--no-images",
+        action="store_true",
+        help="Override the selected profile and disable image routing",
+    )
+    parser.add_argument(
+        "--recent-turns",
+        type=int,
+        default=None,
+        help="Override how many recent turns remain exact",
     )
 
 
@@ -32,7 +59,12 @@ def _open_report(path: Path, enabled: bool) -> None:
 
 def cmd_analyze(args) -> int:
     blocks = load_blocks(Path(args.input))
-    plan = route_blocks(blocks, _config(args))
+    policy = _policy(args)
+    plan = route_blocks(
+        blocks,
+        policy.config,
+        profile_name=policy.name,
+    )
     print(json.dumps(plan.to_dict(), indent=2))
     return 0
 
@@ -40,9 +72,16 @@ def cmd_analyze(args) -> int:
 def cmd_route(args) -> int:
     blocks = load_blocks(Path(args.input))
     out = Path(args.out)
-    plan = route_to_directory(blocks, out, _config(args))
+    policy = _policy(args)
+    plan = route_to_directory(
+        blocks,
+        out,
+        policy.config,
+        profile_name=policy.name,
+    )
     report = out / "report.html"
     print(f"Routed {len(blocks)} blocks to {out}")
+    print(f"Profile: {plan.profile_name}")
     print(
         f"Estimated tokens: {plan.estimated_text_tokens:,} -> "
         f"{plan.estimated_routed_tokens:,} ({plan.reduction_percent}% reduction)"
@@ -59,7 +98,13 @@ def cmd_demo(args) -> int:
     fixture = out / "demo-input.json"
     write_demo(fixture)
     blocks = load_blocks(fixture)
-    plan = route_to_directory(blocks, out, _config(args))
+    policy = _policy(args)
+    plan = route_to_directory(
+        blocks,
+        out,
+        policy.config,
+        profile_name=policy.name,
+    )
     report = out / "report.html"
     print(f"Demo created at {report}")
     print(json.dumps(plan.to_dict()["totals"], indent=2))
@@ -69,9 +114,15 @@ def cmd_demo(args) -> int:
 
 def cmd_benchmark(args) -> int:
     out = Path(args.out)
-    result = run_benchmark(out, _config(args))
+    policy = _policy(args)
+    result = run_benchmark(
+        out,
+        policy.config,
+        profile_name=policy.name,
+    )
     status = "PASS" if result.passed else "FAIL"
     print(f"CrumbContext benchmark: {status}")
+    print(f"Profile: {result.profile_name}")
     print(
         f"Estimated tokens: {result.estimated_text_tokens:,} -> "
         f"{result.estimated_routed_tokens:,} "
@@ -117,16 +168,20 @@ def cmd_counterfactual(args) -> int:
         fixture = out / "counterfactual-fixture.json"
         write_counterfactual(fixture)
         spec = CounterfactualSpec.from_dict(counterfactual_payload())
+    policy = _policy(args)
     result = run_counterfactual(
         spec,
         out,
         provider=args.provider,
-        config=_config(args),
+        config=policy.config,
         provider_options=_provider_options(args),
+        profile_name=policy.name,
+        redact_responses=args.redact_responses,
     )
     status = "PASS" if result.passed else "FAIL"
     print(f"CrumbContext counterfactual: {status}")
     print(f"Provider: {result.provider} / {result.model}")
+    print(f"Profile: {result.plan['routing']['profile']}")
     print(f"Usage kind: {result.usage_kind}")
     print(
         "Input tokens: "
@@ -142,6 +197,8 @@ def cmd_counterfactual(args) -> int:
     print(f"Response similarity: {result.response_similarity * 100:.1f}%")
     print(f"Report: {out / 'counterfactual.html'}")
     print(f"Share card: {out / 'counterfactual-card.svg'}")
+    if args.redact_responses:
+        print("Saved response bodies: redacted")
     _open_report(out / "counterfactual.html", args.open)
     return 0 if result.passed else 1
 
@@ -166,8 +223,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print a routing plan for a JSON transcript",
     )
     analyze.add_argument("input")
-    analyze.add_argument("--no-images", action="store_true")
-    analyze.add_argument("--recent-turns", type=int, default=2)
+    _add_routing_arguments(analyze)
     analyze.set_defaults(func=cmd_analyze)
 
     route = sub.add_parser(
@@ -176,15 +232,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     route.add_argument("input")
     route.add_argument("--out", default="crumbcontext-output")
-    route.add_argument("--no-images", action="store_true")
-    route.add_argument("--recent-turns", type=int, default=2)
+    _add_routing_arguments(route)
     route.add_argument("--open", action="store_true", help="Open the report in a browser")
     route.set_defaults(func=cmd_route)
 
     demo = sub.add_parser("demo", help="Generate a screenshot-ready routing demo")
     demo.add_argument("--out", default="crumbcontext-demo")
-    demo.add_argument("--no-images", action="store_true")
-    demo.add_argument("--recent-turns", type=int, default=2)
+    _add_routing_arguments(demo)
     demo.add_argument("--open", action="store_true", help="Open the report in a browser")
     demo.set_defaults(func=cmd_demo)
 
@@ -193,8 +247,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run the reproducible self-check and generate a share card",
     )
     benchmark.add_argument("--out", default="crumbcontext-proof")
-    benchmark.add_argument("--no-images", action="store_true")
-    benchmark.add_argument("--recent-turns", type=int, default=2)
+    _add_routing_arguments(benchmark)
     benchmark.add_argument(
         "--open",
         action="store_true",
@@ -219,8 +272,8 @@ def build_parser() -> argparse.ArgumentParser:
     counterfactual.add_argument(
         "--model",
         help=(
-            "Provider model; defaults to provider environment variable, "
-            "claude-sonnet-4-6, or gpt-5.6"
+            "Provider model; defaults to the provider environment variable or "
+            "the adapter's documented default"
         ),
     )
     counterfactual.add_argument("--max-tokens", type=int, default=1024)
@@ -242,8 +295,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="OpenAI image detail for historical screenshot lanes",
     )
     counterfactual.add_argument("--out", default="crumbcontext-counterfactual")
-    counterfactual.add_argument("--no-images", action="store_true")
-    counterfactual.add_argument("--recent-turns", type=int, default=2)
+    _add_routing_arguments(counterfactual)
+    counterfactual.add_argument(
+        "--redact-responses",
+        action="store_true",
+        help="Omit provider response bodies from saved JSON and HTML artifacts",
+    )
     counterfactual.add_argument(
         "--open",
         action="store_true",
