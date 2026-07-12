@@ -8,6 +8,7 @@ CrumbContext routes long AI context across exact, cache, CRUMB, image, and summa
 - [Architecture](ARCHITECTURE.md) — routing model, lanes, artifacts, and trust boundaries.
 - [Counterfactual guide](COUNTERFACTUAL.md) — baseline-versus-routed measurement and report structure.
 - [Provider-measured benchmarks](PROVIDER_BENCHMARKS.md) — guarded real-provider evidence workflow and claims contract.
+- [Roadmap](../ROADMAP.md) — measured evidence, integrations, policies, and privacy priorities.
 
 ## Provider adapters
 
