@@ -19,12 +19,7 @@ def sha256_text(value: str) -> str:
 
 
 def canonical_json(value: Any) -> str:
-    return json.dumps(
-        value,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-    )
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
 def all_exact_values(blocks: tuple[ContextBlock, ...]) -> tuple[str, ...]:
@@ -89,11 +84,7 @@ def _read_artifact(output_dir: Path, artifact: str | None) -> Any:
     return values[0] if len(values) == 1 else values
 
 
-def routed_request(
-    spec: CounterfactualSpec,
-    output_dir: Path,
-    config: RouterConfig,
-) -> tuple[ProviderRequest, RoutePlan]:
+def routed_request(spec: CounterfactualSpec, output_dir: Path, config: RouterConfig) -> tuple[ProviderRequest, RoutePlan]:
     plan = route_to_directory(list(spec.blocks), output_dir, config)
     by_id = {item.block_id: item for item in plan.blocks}
     routed_blocks: list[dict[str, Any]] = []
@@ -121,6 +112,8 @@ def routed_request(
             item["artifact"] = _read_artifact(output_dir, route.artifact)
             item["mock_vision_source"] = block.content
             item["non_authoritative"] = True
+            if block.role.lower() not in {"user", "tool"}:
+                item["fallback_content"] = block.content
         elif route.lane in {Lane.SUMMARY, Lane.CRUMB}:
             item["artifact"] = _read_artifact(output_dir, route.artifact)
             item["non_authoritative"] = True
@@ -134,9 +127,7 @@ def routed_request(
         metadata={
             "compression": "crumbcontext",
             "provider_billed": False,
-            "mock_vision_source_present": any(
-                "mock_vision_source" in item for item in routed_blocks
-            ),
+            "mock_vision_source_present": any("mock_vision_source" in item for item in routed_blocks),
         },
     )
     return request, plan
