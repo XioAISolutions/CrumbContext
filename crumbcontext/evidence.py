@@ -7,6 +7,13 @@ import sys
 from pathlib import Path
 from typing import Any, Iterable
 
+from .schemas import (
+    COUNTERFACTUAL_RESULT_SCHEMA,
+    ROUTE_PLAN_SCHEMA,
+    SchemaError,
+    require_schema,
+)
+
 
 class EvidenceError(ValueError):
     """Raised when a provider evidence bundle violates the publication contract."""
@@ -16,10 +23,20 @@ def load_report(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
         raise EvidenceError("counterfactual report must be a JSON object")
+    require_schema(
+        value,
+        COUNTERFACTUAL_RESULT_SCHEMA,
+        allow_legacy_missing=True,
+    )
     return value
 
 
 def validate_provider_report(report: dict[str, Any], expected_provider: str) -> None:
+    require_schema(
+        report,
+        COUNTERFACTUAL_RESULT_SCHEMA,
+        allow_legacy_missing=True,
+    )
     provider = str(report.get("provider") or "").strip().lower()
     if provider != expected_provider.strip().lower():
         raise EvidenceError(
@@ -55,6 +72,21 @@ def validate_provider_report(report: dict[str, Any], expected_provider: str) -> 
     ):
         if not isinstance(comparison.get(key), (int, float)):
             raise EvidenceError(f"comparison is missing numeric {key}")
+
+    plan = _mapping(report, "plan")
+    plan_is_legacy = require_schema(
+        plan,
+        ROUTE_PLAN_SCHEMA,
+        allow_legacy_missing=True,
+    )
+    if not plan_is_legacy:
+        routing = _mapping(plan, "routing")
+        profile = routing.get("profile")
+        config = routing.get("config")
+        if not isinstance(profile, str) or not profile.strip():
+            raise EvidenceError("versioned routing plan is missing a profile name")
+        if not isinstance(config, dict):
+            raise EvidenceError("versioned routing plan is missing resolved config")
 
     for key in ("task_sha256", "source_sha256"):
         _require_sha256(report.get(key), key)
@@ -95,9 +127,21 @@ def render_summary(
     routed_response = _mapping(routed, "response")
     evaluation = _mapping(routed, "evaluation")
     comparison = _mapping(report, "comparison")
+    plan = _mapping(report, "plan")
+    routing = plan.get("routing") if isinstance(plan.get("routing"), dict) else {}
+    redaction = (
+        report.get("redaction")
+        if isinstance(report.get("redaction"), dict)
+        else {}
+    )
+    schema = report.get("schema_version") or "legacy-v0.1-without-schema"
+    profile = routing.get("profile") or "legacy-unspecified"
     lines = [
         "# CrumbContext provider benchmark",
         "",
+        f"- Evidence schema: `{schema}`",
+        f"- Routing profile: `{profile}`",
+        f"- Saved response bodies redacted: `{bool(redaction.get('response_bodies'))}`",
         f"- Requested provider/model: `{requested_provider}` / `{requested_model}`",
         f"- Reported provider/model: `{report['provider']}` / `{report['model']}`",
         f"- Usage kind: `{report['usage_kind']}`",
@@ -189,7 +233,7 @@ def main(argv: list[str] | None = None) -> int:
                 handle.write(summary)
         else:
             print(summary, end="")
-    except (OSError, json.JSONDecodeError, EvidenceError) as exc:
+    except (OSError, json.JSONDecodeError, EvidenceError, SchemaError) as exc:
         print(f"provider evidence rejected: {exc}", file=sys.stderr)
         return 1
     return 0

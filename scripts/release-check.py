@@ -42,9 +42,13 @@ def check_release(tag: str | None = None) -> str:
     release_agent_workflow = read(".github/workflows/release-agent.yml")
     verify_pypi = read(".github/workflows/verify-pypi.yml")
     provider_benchmark = read(".github/workflows/provider-benchmark.yml")
+    python_api_workflow = read(".github/workflows/python-api.yml")
     release_request_example = read(".github/release-request.example.json")
     release_agent_script = read("scripts/release_agent.py")
     release_assets = read("scripts/release_assets.py")
+    profiles = read("crumbcontext/profiles.py")
+    schemas = read("crumbcontext/schemas.py")
+    python_api = read("crumbcontext/api.py")
 
     project_version = capture(
         r'^version\s*=\s*"([^"]+)"',
@@ -76,25 +80,37 @@ def check_release(tag: str | None = None) -> str:
 
     release_notes = f"docs/RELEASE_NOTES_{expected_tag}.md"
     required_files = (
+        "crumbcontext/api.py",
+        "crumbcontext/evidence.py",
+        "crumbcontext/profiles.py",
+        "crumbcontext/schemas.py",
         "crumbcontext/providers/anthropic.py",
         "crumbcontext/providers/openai.py",
-        "crumbcontext/evidence.py",
         "docs/ANTHROPIC.md",
         "docs/OPENAI.md",
         "docs/COUNTERFACTUAL.md",
         "docs/PROVIDER_BENCHMARKS.md",
+        "docs/PYTHON_API.md",
+        "docs/ROUTING_PROFILES.md",
         "docs/RELEASE.md",
         release_notes,
         "scripts/release_assets.py",
         "scripts/release_agent.py",
+        "tests/test_cli_profiles.py",
         "tests/test_evidence.py",
+        "tests/test_profiles.py",
+        "tests/test_public_api.py",
+        "tests/test_redaction.py",
         "tests/test_release_assets.py",
         "tests/test_release_agent.py",
+        "tests/test_schemas.py",
         ".github/release-request.example.json",
         ".github/workflows/provider-benchmark.yml",
+        ".github/workflows/python-api.yml",
         ".github/workflows/release-agent.yml",
         ".github/workflows/verify-pypi.yml",
         "LICENSE",
+        "ROADMAP.md",
         "SECURITY.md",
     )
     for relative in required_files:
@@ -129,6 +145,8 @@ def check_release(tag: str | None = None) -> str:
             changelog,
             read("docs/LAUNCH_KIT.md"),
             read("docs/RELEASE.md"),
+            read("docs/PYTHON_API.md"),
+            read("docs/ROUTING_PROFILES.md"),
         )
     )
     for fragment in stale_fragments:
@@ -208,12 +226,62 @@ def check_release(tag: str | None = None) -> str:
             "environment: provider-benchmarks",
             "ANTHROPIC_API_KEY",
             "OPENAI_API_KEY",
+            "profile:",
+            "redact_responses:",
+            '--profile "$PROFILE"',
+            "--redact-responses",
             "python -m crumbcontext.evidence",
-            "--provider \"$PROVIDER\"",
-            "--requested-model \"$MODEL\"",
+            '--provider "$PROVIDER"',
+            '--requested-model "$MODEL"',
             "actions/upload-artifact@v7",
         ),
         "provider benchmark workflow",
+    )
+
+    require_fragments(
+        python_api_workflow,
+        (
+            'python-version: ["3.10", "3.11", "3.12"]',
+            "Build and install the wheel",
+            "Verify supported top-level imports outside the source tree",
+            "Run offline integration examples against the installed wheel",
+        ),
+        "Python API workflow",
+    )
+
+    require_fragments(
+        profiles,
+        (
+            '"safe-default"',
+            '"text-only"',
+            '"cache-heavy"',
+            '"strict-exact"',
+            "validate_router_config",
+            "unknown routing profile",
+        ),
+        "routing profiles",
+    )
+
+    require_fragments(
+        schemas,
+        (
+            'ROUTE_PLAN_SCHEMA = "crumbcontext.route-plan.v1"',
+            'COUNTERFACTUAL_RESULT_SCHEMA = "crumbcontext.counterfactual-result.v1"',
+            'PROVIDER_REQUEST_SCHEMA = "crumbcontext.provider-request.v1"',
+            "allow_legacy_missing",
+            "unsupported schema_version",
+        ),
+        "evidence schemas",
+    )
+
+    require_fragments(
+        python_api,
+        (
+            "profile: str | None = None",
+            "config_overrides: Mapping[str, Any] | None = None",
+            "use either an explicit RouterConfig or a named profile",
+        ),
+        "Python routing API",
     )
 
     require_fragments(

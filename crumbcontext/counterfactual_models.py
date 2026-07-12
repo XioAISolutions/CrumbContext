@@ -4,6 +4,11 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from .models import ContextBlock
+from .schemas import (
+    COUNTERFACTUAL_RESULT_SCHEMA,
+    COUNTERFACTUAL_SPEC_SCHEMA,
+    require_schema,
+)
 
 
 @dataclass(frozen=True)
@@ -36,6 +41,7 @@ class CounterfactualSpec:
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> "CounterfactualSpec":
+        require_schema(value, COUNTERFACTUAL_SPEC_SCHEMA, allow_legacy_missing=True)
         blocks_raw = value.get("blocks")
         if not isinstance(blocks_raw, list) or not blocks_raw:
             raise ValueError("counterfactual input requires a non-empty 'blocks' array")
@@ -54,6 +60,7 @@ class CounterfactualSpec:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "schema_version": COUNTERFACTUAL_SPEC_SCHEMA,
             "name": self.name,
             "task": self.task,
             "blocks": [asdict(block) for block in self.blocks],
@@ -84,12 +91,16 @@ class RunRecord:
     response: dict[str, Any]
     evaluation: ResponseEvaluation
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self, *, redact_response: bool = False) -> dict[str, Any]:
+        response = dict(self.response)
+        if redact_response and "text" in response:
+            response["text"] = "[REDACTED: response body omitted by policy]"
+            response["text_redacted"] = True
         return {
             "request_sha256": self.request_sha256,
             "response_sha256": self.response_sha256,
             "request": self.request,
-            "response": self.response,
+            "response": response,
             "evaluation": self.evaluation.to_dict(),
         }
 
@@ -112,16 +123,17 @@ class CounterfactualResult:
     plan: dict[str, Any]
     disclaimer: str
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self, *, redact_responses: bool = False) -> dict[str, Any]:
         return {
+            "schema_version": COUNTERFACTUAL_RESULT_SCHEMA,
             "passed": self.passed,
             "provider": self.provider,
             "model": self.model,
             "usage_kind": self.usage_kind,
             "task_sha256": self.task_sha256,
             "source_sha256": self.source_sha256,
-            "baseline": self.baseline.to_dict(),
-            "routed": self.routed.to_dict(),
+            "baseline": self.baseline.to_dict(redact_response=redact_responses),
+            "routed": self.routed.to_dict(redact_response=redact_responses),
             "comparison": {
                 "input_token_reduction_percent": self.input_token_reduction_percent,
                 "total_token_reduction_percent": self.total_token_reduction_percent,
@@ -130,5 +142,9 @@ class CounterfactualResult:
                 "same_task": self.same_task,
             },
             "plan": self.plan,
+            "redaction": {
+                "response_bodies": bool(redact_responses),
+                "hashes_and_evaluation_preserved": True,
+            },
             "disclaimer": self.disclaimer,
         }

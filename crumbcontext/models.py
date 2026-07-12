@@ -4,6 +4,8 @@ from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any
 
+from .schemas import ROUTE_PLAN_SCHEMA
+
 
 class Lane(str, Enum):
     EXACT = "exact"
@@ -74,6 +76,9 @@ class RoutePlan:
     estimated_text_tokens: int
     estimated_routed_tokens: int
     exact_anchor_count: int
+    schema_version: str = ROUTE_PLAN_SCHEMA
+    profile_name: str = "custom"
+    resolved_config: dict[str, Any] = field(default_factory=dict)
 
     @property
     def reduction_percent(self) -> float:
@@ -84,6 +89,11 @@ class RoutePlan:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "schema_version": self.schema_version,
+            "routing": {
+                "profile": self.profile_name,
+                "config": dict(self.resolved_config),
+            },
             "blocks": [block.to_dict() for block in self.blocks],
             "totals": {
                 "original_chars": self.original_chars,

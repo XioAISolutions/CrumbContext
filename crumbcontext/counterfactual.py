@@ -27,6 +27,9 @@ def run_counterfactual(
     provider: Provider | str = "mock",
     config: RouterConfig | None = None,
     provider_options: dict[str, Any] | None = None,
+    *,
+    profile_name: str = "custom",
+    redact_responses: bool = False,
 ) -> CounterfactualResult:
     """Run the same task against baseline and routed context payloads."""
 
@@ -44,7 +47,12 @@ def run_counterfactual(
         resolved_provider = provider
 
     baseline_req = baseline_request(spec)
-    routed_req, plan = routed_request(spec, routed_artifact_root, resolved_config)
+    routed_req, plan = routed_request(
+        spec,
+        routed_artifact_root,
+        resolved_config,
+        profile_name=profile_name,
+    )
     baseline_response = resolved_provider.run(baseline_req)
     routed_response = resolved_provider.run(routed_req)
     expected = all_exact_values(spec.blocks)
@@ -109,8 +117,17 @@ def run_counterfactual(
         baseline_response.to_dict(),
         routed_response.to_dict(),
         result,
+        redact_responses=redact_responses,
     )
     return result
+
+
+def _redact_response(value: dict[str, Any]) -> dict[str, Any]:
+    redacted = dict(value)
+    if "text" in redacted:
+        redacted["text"] = "[REDACTED: response body omitted by policy]"
+        redacted["text_redacted"] = True
+    return redacted
 
 
 def _write_outputs(
@@ -121,21 +138,33 @@ def _write_outputs(
     baseline_response: dict,
     routed_response: dict,
     result: CounterfactualResult,
+    *,
+    redact_responses: bool = False,
 ) -> None:
+    baseline_saved = (
+        _redact_response(baseline_response) if redact_responses else baseline_response
+    )
+    routed_saved = (
+        _redact_response(routed_response) if redact_responses else routed_response
+    )
     values = {
         "counterfactual-input.json": spec.to_dict(),
         "baseline-request.json": baseline_request_value.to_dict(),
         "routed-request.json": routed_request_value.to_dict(),
-        "baseline-response.json": baseline_response,
-        "routed-response.json": routed_response,
-        "counterfactual.json": result.to_dict(),
+        "baseline-response.json": baseline_saved,
+        "routed-response.json": routed_saved,
+        "counterfactual.json": result.to_dict(redact_responses=redact_responses),
     }
     for name, value in values.items():
         (output_dir / name).write_text(
             json.dumps(value, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
-    write_counterfactual_report(result, output_dir / "counterfactual.html")
+    write_counterfactual_report(
+        result,
+        output_dir / "counterfactual.html",
+        redact_responses=redact_responses,
+    )
     write_counterfactual_card(result, output_dir / "counterfactual-card.svg")
 
 

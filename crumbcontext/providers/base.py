@@ -5,6 +5,8 @@ import json
 from dataclasses import asdict, dataclass, field
 from typing import Any, Protocol
 
+from ..schemas import PROVIDER_REQUEST_SCHEMA, PROVIDER_RESPONSE_SCHEMA
+
 
 @dataclass(frozen=True)
 class ProviderRequest:
@@ -17,7 +19,9 @@ class ProviderRequest:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        value = asdict(self)
+        value["schema_version"] = PROVIDER_REQUEST_SCHEMA
+        return value
 
     def canonical_json(self) -> str:
         return json.dumps(
@@ -49,6 +53,7 @@ class ProviderResponse:
 
     def to_dict(self) -> dict[str, Any]:
         value = asdict(self)
+        value["schema_version"] = PROVIDER_RESPONSE_SCHEMA
         value["total_tokens"] = self.total_tokens
         return value
 

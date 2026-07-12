@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import Any
 from xml.sax.saxutils import escape
 
 from .anchors import extract_anchors, unique_anchors
@@ -10,6 +11,7 @@ from .bundle import load_blocks, route_to_directory
 from .demo import write_demo
 from .models import Lane
 from .router import RouterConfig
+from .schemas import BENCHMARK_RESULT_SCHEMA
 
 
 @dataclass(frozen=True)
@@ -22,6 +24,9 @@ class BenchmarkResult:
     estimated_reduction_percent: float
     exact_anchors_expected: int
     exact_anchors_preserved: int
+    schema_version: str = BENCHMARK_RESULT_SCHEMA
+    profile_name: str = "custom"
+    resolved_config: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -71,6 +76,8 @@ def _write_share_card(result: BenchmarkResult, path: Path) -> None:
 def run_benchmark(
     output_dir: Path,
     config: RouterConfig | None = None,
+    *,
+    profile_name: str = "custom",
 ) -> BenchmarkResult:
     """Run the reproducible offline benchmark and verify its own artifacts."""
 
@@ -79,7 +86,12 @@ def run_benchmark(
     fixture = output_dir / "benchmark-input.json"
     write_demo(fixture)
     blocks = load_blocks(fixture)
-    plan = route_to_directory(blocks, output_dir, resolved_config)
+    plan = route_to_directory(
+        blocks,
+        output_dir,
+        resolved_config,
+        profile_name=profile_name,
+    )
 
     expected = {
         (anchor.kind, anchor.value)
@@ -128,6 +140,8 @@ def run_benchmark(
         estimated_reduction_percent=plan.reduction_percent,
         exact_anchors_expected=len(expected),
         exact_anchors_preserved=len(preserved),
+        profile_name=plan.profile_name,
+        resolved_config=dict(plan.resolved_config),
     )
     (output_dir / "benchmark.json").write_text(
         json.dumps(result.to_dict(), indent=2),
