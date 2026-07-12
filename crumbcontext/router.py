@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 from .anchors import extract_anchors, unique_anchors
 from .models import ContextBlock, Lane, RoutePlan, RoutedBlock
@@ -71,7 +71,12 @@ def _decision(block: ContextBlock, config: RouterConfig) -> tuple[Lane, str]:
     return Lane.SUMMARY, "old semantic context is reduced with deterministic extractive summarization"
 
 
-def route_blocks(blocks: list[ContextBlock], config: RouterConfig | None = None) -> RoutePlan:
+def route_blocks(
+    blocks: list[ContextBlock],
+    config: RouterConfig | None = None,
+    *,
+    profile_name: str = "custom",
+) -> RoutePlan:
     config = config or RouterConfig()
     routed: list[RoutedBlock] = []
     original_chars = 0
@@ -120,4 +125,6 @@ def route_blocks(blocks: list[ContextBlock], config: RouterConfig | None = None)
         estimated_text_tokens=text_tokens_total,
         estimated_routed_tokens=routed_tokens_total,
         exact_anchor_count=len(all_anchor_keys),
+        profile_name=profile_name,
+        resolved_config=asdict(config),
     )
