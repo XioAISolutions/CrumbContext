@@ -1,6 +1,6 @@
 # Release process
 
-This is the authoritative checklist for publishing CrumbContext. Repository-side build, validation, release creation, checksums, SBOM generation, provenance, and PyPI upload are automated. GitHub and PyPI account settings still require an administrator once.
+This is the authoritative checklist for publishing CrumbContext. Repository-side build, validation, release creation, checksums, SBOM generation, provenance, and PyPI upload are automated. The only blocking account action for the first release is registering the pending PyPI Trusted Publisher.
 
 ## Release invariants
 
@@ -27,19 +27,7 @@ python -m build
 python -m twine check dist/*
 ```
 
-## One-time administrator setup
-
-### 1. Create the GitHub environment
-
-In `XioAISolutions/CrumbContext`:
-
-1. Open **Settings → Environments**.
-2. Create an environment named exactly `pypi`.
-3. Optionally require an administrator approval before deployment. This is recommended because the environment gates the final upload job.
-
-No PyPI token or repository secret is required.
-
-### 2. Register the pending PyPI Trusted Publisher
+## Required one-time PyPI setup
 
 The PyPI project does not need to exist first. PyPI supports a **pending publisher** that creates the project during the first successful trusted publish.
 
@@ -53,13 +41,23 @@ While signed in to the intended PyPI owner account, open the account publishing 
 | Workflow filename | `publish.yml` |
 | Environment name | `pypi` |
 
-Important: a pending publisher does not reserve the package name. Push the first release tag soon after registering it.
+No PyPI password, API token, or GitHub repository secret is required.
 
-### 3. Finish GitHub repository settings
+A pending publisher does not reserve the package name. Push the first release tag soon after registering it.
 
-- Require CI and CodeQL on `main` through a branch ruleset.
-- Add the description, topics, and social preview from `docs/LAUNCH_KIT.md`.
-- Enable Discussions only if it will be actively maintained.
+## GitHub environment behavior
+
+The workflow references a GitHub environment named `pypi`. When the first tagged workflow runs, GitHub creates that environment automatically if it does not already exist.
+
+Pre-creating it is optional. An administrator may open **Settings → Environments → New environment**, name it exactly `pypi`, and add required reviewers or deployment protections before the first release. Those controls are useful but are not required for OIDC Trusted Publishing to function.
+
+## Optional repository launch settings
+
+These improve governance and presentation but do not block package publication:
+
+- require CI and CodeQL on `main` through a branch ruleset;
+- add the description, topics, and social preview from `docs/LAUNCH_KIT.md`;
+- enable Discussions only if it will be actively maintained.
 
 ## What the tag pipeline does
 
@@ -78,11 +76,11 @@ The workflow then:
 9. attaches all verified release assets;
 10. publishes only the wheel and source distribution to PyPI using GitHub OIDC.
 
-The GitHub release is created before the PyPI job. The PyPI job still requires the `pypi` environment and the matching trusted publisher.
+The GitHub release is created before the PyPI job. The final publish job uses the `pypi` environment and must match the pending Trusted Publisher configuration exactly.
 
 ## Publish v0.1.0
 
-After the one-time setup is complete and `main` is green:
+After the pending publisher is registered and `main` is green:
 
 ```bash
 git checkout main
