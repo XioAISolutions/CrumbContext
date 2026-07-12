@@ -35,9 +35,21 @@ def check_release(tag: str | None = None) -> str:
     publish = read(".github/workflows/publish.yml")
     release_assets = read("scripts/release_assets.py")
 
-    project_version = capture(r'^version\s*=\s*"([^"]+)"', pyproject, "project version")
-    package_version = capture(r'^__version__\s*=\s*"([^"]+)"', package_init, "package version")
-    citation_version = capture(r'^version:\s*([^\s]+)', citation, "citation version")
+    project_version = capture(
+        r'^version\s*=\s*"([^"]+)"',
+        pyproject,
+        "project version",
+    )
+    package_version = capture(
+        r'^__version__\s*=\s*"([^"]+)"',
+        package_init,
+        "package version",
+    )
+    citation_version = capture(
+        r'^version:\s*([^\s]+)',
+        citation,
+        "citation version",
+    )
 
     versions = {
         "pyproject.toml": project_version,
@@ -88,7 +100,15 @@ def check_release(tag: str | None = None) -> str:
         "--provider mock|anthropic --out",
         "github.event.release.tag_name",
     )
-    combined_docs = "\n".join((readme, security, changelog, read("docs/LAUNCH_KIT.md"), read("docs/RELEASE.md")))
+    combined_docs = "\n".join(
+        (
+            readme,
+            security,
+            changelog,
+            read("docs/LAUNCH_KIT.md"),
+            read("docs/RELEASE.md"),
+        )
+    )
     for fragment in stale_fragments:
         if fragment in combined_docs or fragment in publish:
             raise AssertionError(f"stale release statement remains: {fragment}")
@@ -97,7 +117,7 @@ def check_release(tag: str | None = None) -> str:
         raise AssertionError("CHANGELOG must contain the dated v0.1.0 release section")
 
     publish_requirements = (
-        'tags:',
+        "tags:",
         '"v*.*.*"',
         "python scripts/release-check.py --tag",
         "python -m build --outdir python-dist",
@@ -118,7 +138,7 @@ def check_release(tag: str | None = None) -> str:
     asset_requirements = (
         '"SPDX-2.3"',
         '"SHA256SUMS.txt"',
-        '"release-manifest.json"',
+        "release-manifest.json",
         '"provider_measurements"',
     )
     for fragment in asset_requirements:
@@ -128,7 +148,9 @@ def check_release(tag: str | None = None) -> str:
     if "environment:\n      name: pypi" not in publish:
         raise AssertionError("trusted publishing must use the GitHub pypi environment")
     if "id-token: write" not in publish:
-        raise AssertionError("trusted publishing and attestations require id-token: write")
+        raise AssertionError(
+            "trusted publishing and attestations require id-token: write"
+        )
 
     print(f"CrumbContext release contract: PASS ({expected_tag})")
     return project_version
