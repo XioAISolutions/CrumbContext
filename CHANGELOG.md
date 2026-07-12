@@ -2,10 +2,11 @@
 
 ## Unreleased
 
-- Expanded the standalone README with architecture, API examples, benchmark methodology, privacy guidance, limitations, FAQ, and launch links.
-- Added a playful but evidence-safe visual identity, logo, hero, benchmark card, and GitHub social preview.
-- Added GitHub topics, hashtags, launch copy, repository settings, CodeQL, Dependabot, CODEOWNERS, issue forms, citation metadata, and contributor conduct guidance.
-- Added the `py.typed` marker for typed-package discovery.
+- Added `crumbcontext counterfactual`, a same-task baseline-versus-routed comparison harness.
+- Added canonical request/source hashes, normalized usage and latency records, exact-value recall, JSON validity, required-string recall, task completion, and response-similarity scoring.
+- Added a deterministic offline mock provider, comparison HTML report, machine-readable result, and shareable counterfactual card.
+- Added a provider contract and custom fixture documentation without making provider-billing claims.
+- Expanded CI to verify the counterfactual on Python 3.10, 3.11, and 3.12.
 
 ## 0.1.0
 

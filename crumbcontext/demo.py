@@ -50,3 +50,37 @@ def demo_payload() -> dict:
 
 def write_demo(path: Path) -> None:
     path.write_text(json.dumps(demo_payload(), indent=2), encoding="utf-8")
+
+
+def counterfactual_payload() -> dict:
+    """Synthetic same-task fixture for the offline comparison harness."""
+
+    payload = demo_payload()
+    return {
+        "name": "bundled-context-counterfactual",
+        "task": (
+            "Return a JSON object containing every exact value present in the context, "
+            "the active authority rules, and the important project decisions."
+        ),
+        "blocks": payload["blocks"],
+        "evaluation": {
+            "expect_json": True,
+            "expected_exact": [
+                "https://example.com/build/12345678",
+                "CAD $14,360.00",
+                "abcdef1234567890",
+            ],
+            "required_substrings": [
+                "Never modify production without approval.",
+                "preserve the public API",
+                "never rename the CLI",
+            ],
+        },
+    }
+
+
+def write_counterfactual(path: Path) -> None:
+    path.write_text(
+        json.dumps(counterfactual_payload(), indent=2),
+        encoding="utf-8",
+    )

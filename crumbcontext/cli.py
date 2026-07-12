@@ -9,7 +9,12 @@ from pathlib import Path
 from . import __version__
 from .benchmark import run_benchmark
 from .bundle import load_blocks, route_to_directory
-from .demo import write_demo
+from .counterfactual import (
+    CounterfactualSpec,
+    load_counterfactual_spec,
+    run_counterfactual,
+)
+from .demo import counterfactual_payload, write_counterfactual, write_demo
 from .router import RouterConfig, route_blocks
 
 
@@ -82,6 +87,43 @@ def cmd_benchmark(args) -> int:
     return 0 if result.passed else 1
 
 
+def cmd_counterfactual(args) -> int:
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    if args.input:
+        spec = load_counterfactual_spec(Path(args.input))
+    else:
+        fixture = out / "counterfactual-fixture.json"
+        write_counterfactual(fixture)
+        spec = CounterfactualSpec.from_dict(counterfactual_payload())
+    result = run_counterfactual(
+        spec,
+        out,
+        provider=args.provider,
+        config=_config(args),
+    )
+    status = "PASS" if result.passed else "FAIL"
+    print(f"CrumbContext counterfactual: {status}")
+    print(f"Provider: {result.provider} / {result.model}")
+    print(f"Usage kind: {result.usage_kind}")
+    print(
+        "Input tokens: "
+        f"{result.baseline.response['input_tokens']:,} -> "
+        f"{result.routed.response['input_tokens']:,} "
+        f"({result.input_token_reduction_percent}% reduction)"
+    )
+    print(
+        "Routed exact recall: "
+        f"{result.routed.evaluation.exact_found}/"
+        f"{result.routed.evaluation.exact_expected}"
+    )
+    print(f"Response similarity: {result.response_similarity * 100:.1f}%")
+    print(f"Report: {out / 'counterfactual.html'}")
+    print(f"Share card: {out / 'counterfactual-card.svg'}")
+    _open_report(out / "counterfactual.html", args.open)
+    return 0 if result.passed else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="crumbcontext",
@@ -126,6 +168,26 @@ def build_parser() -> argparse.ArgumentParser:
     benchmark.add_argument("--recent-turns", type=int, default=2)
     benchmark.add_argument("--open", action="store_true", help="Open the report in a browser")
     benchmark.set_defaults(func=cmd_benchmark)
+
+    counterfactual = sub.add_parser(
+        "counterfactual",
+        help="Run the same task against baseline and routed context payloads",
+    )
+    counterfactual.add_argument(
+        "input",
+        nargs="?",
+        help="JSON counterfactual spec; omit to use the bundled fixture",
+    )
+    counterfactual.add_argument("--provider", default="mock")
+    counterfactual.add_argument("--out", default="crumbcontext-counterfactual")
+    counterfactual.add_argument("--no-images", action="store_true")
+    counterfactual.add_argument("--recent-turns", type=int, default=2)
+    counterfactual.add_argument(
+        "--open",
+        action="store_true",
+        help="Open the comparison report in a browser",
+    )
+    counterfactual.set_defaults(func=cmd_counterfactual)
     return parser
 
 
