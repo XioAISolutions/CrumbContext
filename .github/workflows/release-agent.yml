@@ -42,8 +42,22 @@ jobs:
             --request .github/release-request.json \
             --head-sha "$HEAD_SHA" \
             --github-output "$GITHUB_OUTPUT"
-      - name: Wait for CodeQL on the same commit
+      - name: Refuse an already published tag
         if: steps.request.outputs.requested == 'true'
+        id: uniqueness
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.request.outputs.tag }}
+        run: |
+          if gh api "/repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo "dispatch=false" >> "$GITHUB_OUTPUT"
+            echo "Release tag $TAG already exists; the request is a safe no-op."
+          else
+            echo "dispatch=true" >> "$GITHUB_OUTPUT"
+            echo "Release tag $TAG is available."
+          fi
+      - name: Wait for CodeQL on the same commit
+        if: steps.request.outputs.requested == 'true' && steps.uniqueness.outputs.dispatch == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ steps.request.outputs.commit }}
@@ -84,7 +98,7 @@ jobs:
           echo "Timed out waiting for CodeQL on $HEAD_SHA" >&2
           exit 1
       - name: Dispatch the attested GitHub and PyPI publish workflow
-        if: steps.request.outputs.requested == 'true'
+        if: steps.request.outputs.requested == 'true' && steps.uniqueness.outputs.dispatch == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.request.outputs.tag }}
