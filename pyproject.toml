@@ -49,8 +49,12 @@ classifiers = [
 dependencies = ["Pillow>=10.0"]
 
 [project.optional-dependencies]
+docs = [
+  "Markdown>=3.8,<4",
+]
 dev = [
   "build>=1.2",
+  "Markdown>=3.8,<4",
   "pytest>=8.0",
   "tomli>=2.0; python_version < '3.11'",
   "twine>=5.0",
@@ -58,7 +62,7 @@ dev = [
 
 [project.urls]
 Homepage = "https://github.com/XioAISolutions/CrumbContext"
-Documentation = "https://github.com/XioAISolutions/CrumbContext/tree/main/docs"
+Documentation = "https://xioaisolutions.github.io/CrumbContext/"
 Source = "https://github.com/XioAISolutions/CrumbContext"
 Issues = "https://github.com/XioAISolutions/CrumbContext/issues"
 Changelog = "https://github.com/XioAISolutions/CrumbContext/blob/main/CHANGELOG.md"
