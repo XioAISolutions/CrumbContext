@@ -1,0 +1,158 @@
+name: Provider benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: Provider adapter to measure
+        required: true
+        type: choice
+        options:
+          - anthropic
+          - openai
+      model:
+        description: Exact provider model identifier
+        required: true
+        type: string
+      no_images:
+        description: Force text-only routing
+        required: true
+        default: false
+        type: boolean
+      recent_turns:
+        description: Number of recent turns kept exact
+        required: true
+        default: "2"
+        type: string
+      run_label:
+        description: Short evidence label, such as sonnet-text-only
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    environment: provider-benchmarks
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      PROVIDER: ${{ inputs.provider }}
+      MODEL: ${{ inputs.model }}
+      NO_IMAGES: ${{ inputs.no_images }}
+      RECENT_TURNS: ${{ inputs.recent_turns }}
+      RUN_LABEL: ${{ inputs.run_label }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install the repository package
+        run: python -m pip install .
+      - name: Validate the guarded benchmark request
+        run: |
+          if [[ ! "$RECENT_TURNS" =~ ^[0-9]+$ ]]; then
+            echo "recent_turns must be a non-negative integer" >&2
+            exit 1
+          fi
+          if [[ ! "$RUN_LABEL" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "run_label may contain only letters, numbers, dot, underscore, and hyphen" >&2
+            exit 1
+          fi
+          case "$PROVIDER" in
+            anthropic)
+              test -n "$ANTHROPIC_API_KEY" || { echo "ANTHROPIC_API_KEY is not configured in provider-benchmarks" >&2; exit 1; }
+              ;;
+            openai)
+              test -n "$OPENAI_API_KEY" || { echo "OPENAI_API_KEY is not configured in provider-benchmarks" >&2; exit 1; }
+              ;;
+            *)
+              echo "unsupported provider: $PROVIDER" >&2
+              exit 1
+              ;;
+          esac
+          test -n "$MODEL" || { echo "an exact model identifier is required" >&2; exit 1; }
+      - name: Run the same-request provider counterfactual
+        run: |
+          args=(
+            counterfactual
+            --provider "$PROVIDER"
+            --model "$MODEL"
+            --recent-turns "$RECENT_TURNS"
+            --max-tokens 1024
+            --timeout 180
+            --out provider-proof
+          )
+          if [[ "$NO_IMAGES" == "true" ]]; then
+            args+=(--no-images)
+          fi
+          crumbcontext "${args[@]}"
+      - name: Validate measured evidence and exact recall
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          report = json.loads(Path('provider-proof/counterfactual.json').read_text(encoding='utf-8'))
+          expected_provider = os.environ['PROVIDER']
+          expected_model = os.environ['MODEL']
+          assert report['passed'] is True
+          assert report['provider'] == expected_provider
+          assert report['model'] == expected_model
+          assert report['usage_kind'] != 'mock_simulated_not_billed'
+          routed = report['routed']['evaluation']
+          assert routed['exact_found'] == routed['exact_expected']
+          assert routed['required_rules_found'] == routed['required_rules_expected']
+          PY
+      - name: Refuse credential leakage in generated artifacts
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          root = Path('provider-proof')
+          secrets = [
+              os.environ.get('ANTHROPIC_API_KEY', ''),
+              os.environ.get('OPENAI_API_KEY', ''),
+          ]
+          secrets = [value.encode() for value in secrets if value]
+          for path in root.rglob('*'):
+              if not path.is_file():
+                  continue
+              payload = path.read_bytes()
+              for secret in secrets:
+                  if secret in payload:
+                      raise SystemExit(f'credential leakage detected in {path}')
+          PY
+      - name: Write evidence summary
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+
+          data = json.loads(Path('provider-proof/counterfactual.json').read_text(encoding='utf-8'))
+          baseline = data['baseline']
+          routed = data['routed']
+          evaluation = routed['evaluation']
+          print('# CrumbContext provider benchmark')
+          print()
+          print(f"- Provider/model: `{data['provider']}` / `{data['model']}`")
+          print(f"- Usage kind: `{data['usage_kind']}`")
+          print(f"- Baseline input tokens: {baseline['response']['input_tokens']:,}")
+          print(f"- Routed input tokens: {routed['response']['input_tokens']:,}")
+          print(f"- Input-token reduction: {data['input_token_reduction_percent']}%")
+          print(f"- Exact recall: {evaluation['exact_found']}/{evaluation['exact_expected']}")
+          print(f"- Required-rule recall: {evaluation['required_rules_found']}/{evaluation['required_rules_expected']}")
+          print(f"- Response similarity: {data['response_similarity'] * 100:.1f}%")
+          print(f"- Passed: `{data['passed']}`")
+          PY
+      - name: Export reproducible provider evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: provider-proof-${{ inputs.provider }}-${{ inputs.run_label }}-${{ github.run_id }}
+          path: provider-proof/
+          if-no-files-found: error
+          retention-days: 90
