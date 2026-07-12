@@ -6,11 +6,31 @@ from xml.sax.saxutils import escape
 from .counterfactual_models import CounterfactualResult
 
 
-def write_counterfactual_report(result: CounterfactualResult, path: Path) -> None:
+def write_counterfactual_report(
+    result: CounterfactualResult,
+    path: Path,
+    *,
+    redact_responses: bool = False,
+) -> None:
     b = result.baseline
     r = result.routed
     status = "PASS" if result.passed else "CHECK FAILED"
     status_class = "pass" if result.passed else "fail"
+    baseline_text = (
+        "[REDACTED: response body omitted by policy]"
+        if redact_responses
+        else str(b.response["text"])
+    )
+    routed_text = (
+        "[REDACTED: response body omitted by policy]"
+        if redact_responses
+        else str(r.response["text"])
+    )
+    redaction_note = (
+        " Response bodies were redacted from saved artifacts; hashes, usage, and evaluation remain."
+        if redact_responses
+        else ""
+    )
     html = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CrumbContext counterfactual</title>
@@ -19,11 +39,11 @@ def write_counterfactual_report(result: CounterfactualResult, path: Path) -> Non
 *{{box-sizing:border-box}}body{{margin:0;background:radial-gradient(circle at 85% 0,#172554 0,transparent 32%),var(--bg);color:var(--text);font:16px/1.55 Inter,system-ui;padding:42px}}main{{max-width:1180px;margin:auto}}h1{{font-size:54px;line-height:1.05;margin:10px 0}}h2{{margin-top:38px}}.eyebrow{{color:var(--cyan);letter-spacing:.16em;font-weight:700}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}}.card{{background:rgba(16,24,39,.94);border:1px solid var(--line);border-radius:18px;padding:22px}}.big{{font-size:40px;font-weight:800}}.muted{{color:var(--muted)}}.pass{{color:var(--green)}}.fail{{color:var(--red)}}table{{width:100%;border-collapse:collapse}}th,td{{padding:12px;border-bottom:1px solid var(--line);text-align:left}}code,pre{{font-family:ui-monospace,Menlo,monospace}}pre{{white-space:pre-wrap;word-break:break-word;background:#060912;border:1px solid var(--line);border-radius:14px;padding:16px;max-height:360px;overflow:auto}}
 </style></head><body><main>
 <div class="eyebrow">SAME TASK · TWO PAYLOADS · ONE SCORECARD</div><h1>CrumbContext counterfactual</h1>
-<p class="muted">The identical task was executed against the uncompressed baseline and routed context bundle using {escape(result.provider)} / {escape(result.model)}. Usage kind: {escape(result.usage_kind)}.</p>
+<p class="muted">The identical task was executed against the uncompressed baseline and routed context bundle using {escape(result.provider)} / {escape(result.model)}. Usage kind: {escape(result.usage_kind)}.{escape(redaction_note)}</p>
 <div class="grid"><div class="card"><div class="muted">SELF-CHECK</div><div class="big {status_class}">{status}</div></div><div class="card"><div class="muted">INPUT TOKEN DELTA</div><div class="big">{result.input_token_reduction_percent:.1f}%</div></div><div class="card"><div class="muted">ROUTED EXACT RECALL</div><div class="big">{r.evaluation.exact_recall*100:.1f}%</div></div><div class="card"><div class="muted">RESPONSE SIMILARITY</div><div class="big">{result.response_similarity*100:.1f}%</div></div></div>
 <h2>Side-by-side</h2><div class="card"><table><thead><tr><th>Metric</th><th>Baseline</th><th>Routed</th></tr></thead><tbody><tr><td>Input tokens</td><td>{b.response['input_tokens']:,}</td><td>{r.response['input_tokens']:,}</td></tr><tr><td>Output tokens</td><td>{b.response['output_tokens']:,}</td><td>{r.response['output_tokens']:,}</td></tr><tr><td>Total tokens</td><td>{b.response['total_tokens']:,}</td><td>{r.response['total_tokens']:,}</td></tr><tr><td>Latency</td><td>{b.response['latency_ms']:.3f} ms</td><td>{r.response['latency_ms']:.3f} ms</td></tr><tr><td>Exact recall</td><td>{b.evaluation.exact_found}/{b.evaluation.exact_expected}</td><td>{r.evaluation.exact_found}/{r.evaluation.exact_expected}</td></tr><tr><td>Task complete</td><td>{str(b.evaluation.task_complete).lower()}</td><td>{str(r.evaluation.task_complete).lower()}</td></tr></tbody></table></div>
 <h2>Integrity</h2><div class="grid"><div class="card"><div class="muted">TASK SHA-256</div><code>{result.task_sha256}</code></div><div class="card"><div class="muted">SOURCE SHA-256</div><code>{result.source_sha256}</code></div><div class="card"><div class="muted">BASELINE REQUEST</div><code>{b.request_sha256}</code></div><div class="card"><div class="muted">ROUTED REQUEST</div><code>{r.request_sha256}</code></div></div>
-<h2>Responses</h2><div class="grid"><div class="card"><pre>{escape(str(b.response['text']))}</pre></div><div class="card"><pre>{escape(str(r.response['text']))}</pre></div></div><h2>Important limitation</h2><div class="card"><p>{escape(result.disclaimer)}</p></div>
+<h2>Responses</h2><div class="grid"><div class="card"><pre>{escape(baseline_text)}</pre></div><div class="card"><pre>{escape(routed_text)}</pre></div></div><h2>Important limitation</h2><div class="card"><p>{escape(result.disclaimer)}</p></div>
 </main></body></html>"""
     path.write_text(html, encoding="utf-8")
 
