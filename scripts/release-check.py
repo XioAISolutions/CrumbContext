@@ -25,6 +25,12 @@ def capture(pattern: str, text: str, label: str) -> str:
     return match.group(1)
 
 
+def require_fragments(text: str, fragments: tuple[str, ...], label: str) -> None:
+    for fragment in fragments:
+        if fragment not in text:
+            raise AssertionError(f"{label} is missing: {fragment}")
+
+
 def check_release(tag: str | None = None) -> str:
     pyproject = read("pyproject.toml")
     package_init = read("crumbcontext/__init__.py")
@@ -34,6 +40,9 @@ def check_release(tag: str | None = None) -> str:
     security = read("SECURITY.md")
     publish = read(".github/workflows/publish.yml")
     release_agent_workflow = read(".github/workflows/release-agent.yml")
+    verify_pypi = read(".github/workflows/verify-pypi.yml")
+    provider_benchmark = read(".github/workflows/provider-benchmark.yml")
+    release_request_example = read(".github/release-request.example.json")
     release_agent_script = read("scripts/release_agent.py")
     release_assets = read("scripts/release_assets.py")
 
@@ -69,33 +78,41 @@ def check_release(tag: str | None = None) -> str:
     required_files = (
         "crumbcontext/providers/anthropic.py",
         "crumbcontext/providers/openai.py",
+        "crumbcontext/evidence.py",
         "docs/ANTHROPIC.md",
         "docs/OPENAI.md",
+        "docs/COUNTERFACTUAL.md",
+        "docs/PROVIDER_BENCHMARKS.md",
         "docs/RELEASE.md",
         release_notes,
         "scripts/release_assets.py",
         "scripts/release_agent.py",
+        "tests/test_evidence.py",
         "tests/test_release_assets.py",
         "tests/test_release_agent.py",
+        ".github/release-request.example.json",
+        ".github/workflows/provider-benchmark.yml",
         ".github/workflows/release-agent.yml",
+        ".github/workflows/verify-pypi.yml",
         "LICENSE",
         "SECURITY.md",
     )
     for relative in required_files:
         read(relative)
 
-    required_readme_fragments = (
-        "--provider anthropic",
-        "--provider openai",
-        "docs/ANTHROPIC.md",
-        "docs/OPENAI.md",
-        "store: false",
-        "provider-reported",
-        "Exact facts never depend on pixels.",
+    require_fragments(
+        readme,
+        (
+            "--provider anthropic",
+            "--provider openai",
+            "docs/ANTHROPIC.md",
+            "docs/OPENAI.md",
+            "store: false",
+            "provider-reported",
+            "Exact facts never depend on pixels.",
+        ),
+        "README release surface",
     )
-    for fragment in required_readme_fragments:
-        if fragment not in readme:
-            raise AssertionError(f"README is missing release surface: {fragment}")
 
     stale_fragments = (
         "OpenAI remains on the roadmap",
@@ -118,65 +135,118 @@ def check_release(tag: str | None = None) -> str:
         if fragment in combined_docs or fragment in publish:
             raise AssertionError(f"stale release statement remains: {fragment}")
 
-    if f"## {project_version} - 2026-07-12" not in changelog:
-        raise AssertionError("CHANGELOG must contain the dated v0.1.0 release section")
-
-    publish_requirements = (
-        "workflow_dispatch:",
-        "commit:",
-        "tags:",
-        '"v*.*.*"',
-        "RELEASE_TAG:",
-        "RELEASE_COMMIT:",
-        "python scripts/release-check.py --tag",
-        "test \"$(git rev-parse HEAD)\" = \"$RELEASE_COMMIT\"",
-        "python -m build --outdir python-dist",
-        "python -m twine check python-dist/*",
-        "python scripts/release_assets.py",
-        "actions/attest@v4",
-        "artifact-metadata: write",
-        "softprops/action-gh-release@v3",
-        "target_commitish: ${{ env.RELEASE_COMMIT }}",
-        "contents: write",
-        "body_path: docs/RELEASE_NOTES_${{ env.RELEASE_TAG }}.md",
-        "packages-dir: python-dist/",
-        "pypa/gh-action-pypi-publish@release/v1",
+    dated_release = re.compile(
+        rf"^##\s+{re.escape(project_version)}\s+-\s+\d{{4}}-\d{{2}}-\d{{2}}$",
+        flags=re.MULTILINE,
     )
-    for fragment in publish_requirements:
-        if fragment not in publish:
-            raise AssertionError(f"publish workflow is missing: {fragment}")
+    if not dated_release.search(changelog):
+        raise AssertionError(
+            f"CHANGELOG must contain a dated {project_version} release section"
+        )
 
-    agent_requirements = (
-        'workflows: ["CI"]',
-        "github.event.workflow_run.conclusion == 'success'",
-        "scripts/release_agent.py",
-        "Wait for CodeQL on the same commit",
-        "gh workflow run publish.yml",
-        '-f tag="$TAG" -f commit="$COMMIT"',
+    require_fragments(
+        publish,
+        (
+            "workflow_dispatch:",
+            "commit:",
+            "tags:",
+            '"v*.*.*"',
+            "RELEASE_TAG:",
+            "RELEASE_COMMIT:",
+            "python scripts/release-check.py --tag",
+            'test "$(git rev-parse HEAD)" = "$RELEASE_COMMIT"',
+            "python -m build --outdir python-dist",
+            "python -m twine check python-dist/*",
+            "python scripts/release_assets.py",
+            "actions/attest@v4",
+            "artifact-metadata: write",
+            "softprops/action-gh-release@v3",
+            "target_commitish: ${{ env.RELEASE_COMMIT }}",
+            "contents: write",
+            "body_path: docs/RELEASE_NOTES_${{ env.RELEASE_TAG }}.md",
+            "packages-dir: python-dist/",
+            "pypa/gh-action-pypi-publish@release/v1",
+        ),
+        "publish workflow",
     )
-    for fragment in agent_requirements:
-        if fragment not in release_agent_workflow:
-            raise AssertionError(f"release-agent workflow is missing: {fragment}")
 
-    script_requirements = (
-        'request.get("publish") is not True',
-        'branch != "main"',
-        "release request commit does not match the CI-tested main commit",
-        'tag = f"v{version}"',
+    require_fragments(
+        release_agent_workflow,
+        (
+            'workflows: ["CI"]',
+            "github.event.workflow_run.conclusion == 'success'",
+            "scripts/release_agent.py",
+            "Refuse an already published tag",
+            "/git/ref/tags/$TAG",
+            'echo "dispatch=false"',
+            "Wait for CodeQL on the same commit",
+            "gh workflow run publish.yml",
+            '-f tag="$TAG" -f commit="$COMMIT"',
+        ),
+        "release-agent workflow",
     )
-    for fragment in script_requirements:
-        if fragment not in release_agent_script:
-            raise AssertionError(f"release-agent validator is missing: {fragment}")
 
-    asset_requirements = (
-        '"SPDX-2.3"',
-        '"SHA256SUMS.txt"',
-        "release-manifest.json",
-        '"provider_measurements"',
+    require_fragments(
+        verify_pypi,
+        (
+            "release:",
+            "workflow_dispatch:",
+            "https://pypi.org/simple",
+            '"crumb-context==$VERSION"',
+            'matrix:\n        python-version: ["3.10", "3.11", "3.12"]',
+            "crumbcontext benchmark",
+            "crumbcontext counterfactual --provider mock",
+            "actions/upload-artifact@v7",
+        ),
+        "PyPI verification workflow",
     )
-    for fragment in asset_requirements:
-        if fragment not in release_assets:
-            raise AssertionError(f"release asset builder is missing: {fragment}")
+
+    require_fragments(
+        provider_benchmark,
+        (
+            "workflow_dispatch:",
+            "environment: provider-benchmarks",
+            "ANTHROPIC_API_KEY",
+            "OPENAI_API_KEY",
+            "python -m crumbcontext.evidence",
+            "--provider \"$PROVIDER\"",
+            "--requested-model \"$MODEL\"",
+            "actions/upload-artifact@v7",
+        ),
+        "provider benchmark workflow",
+    )
+
+    require_fragments(
+        release_agent_script,
+        (
+            'request.get("publish") is not True',
+            'branch != "main"',
+            "release request commit does not match the CI-tested main commit",
+            'tag = f"v{version}"',
+        ),
+        "release-agent validator",
+    )
+
+    require_fragments(
+        release_assets,
+        (
+            '"SPDX-2.3"',
+            '"SHA256SUMS.txt"',
+            "release-manifest.json",
+            '"provider_measurements"',
+        ),
+        "release asset builder",
+    )
+
+    require_fragments(
+        release_request_example,
+        (
+            '"publish": true',
+            '"version": "NEXT_VERSION"',
+            '"branch": "main"',
+        ),
+        "release-request template",
+    )
 
     if "environment:\n      name: pypi" not in publish:
         raise AssertionError("trusted publishing must use the GitHub pypi environment")

@@ -1,0 +1,81 @@
+name: Verify PyPI release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Package version without the leading v
+        required: true
+        type: string
+  pull_request:
+    paths:
+      - .github/workflows/verify-pypi.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify-pypi:
+    name: verify-pypi (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Resolve the exact package version
+        id: package
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          raw="${REQUESTED_VERSION:-${RELEASE_TAG:-0.1.0}}"
+          version="${raw#v}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release version: $version" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Install only from the public PyPI index
+        env:
+          VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          python -m pip install --upgrade pip
+          for attempt in $(seq 1 20); do
+            if python -m pip install --no-cache-dir \
+              --index-url https://pypi.org/simple \
+              "crumb-context==$VERSION"; then
+              exit 0
+            fi
+            echo "PyPI has not propagated crumb-context==$VERSION yet (attempt $attempt/20)."
+            sleep 15
+          done
+          echo "Unable to install crumb-context==$VERSION from public PyPI." >&2
+          exit 1
+      - name: Verify installed metadata and CLI
+        env:
+          VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          python -c "import importlib.metadata as m, os; assert m.version('crumb-context') == os.environ['VERSION']"
+          crumbcontext --version
+      - name: Run installed-package proof outside the repository
+        run: |
+          cd /tmp
+          crumbcontext benchmark --out crumbcontext-pypi-proof
+          crumbcontext counterfactual --provider mock --out crumbcontext-pypi-counterfactual
+          python -c "import json; assert json.load(open('/tmp/crumbcontext-pypi-proof/benchmark.json'))['passed']"
+          python -c "import json; assert json.load(open('/tmp/crumbcontext-pypi-counterfactual/counterfactual.json'))['passed']"
+      - name: Export independent installation proof
+        uses: actions/upload-artifact@v7
+        with:
+          name: pypi-proof-${{ steps.package.outputs.version }}-python-${{ matrix.python-version }}
+          path: |
+            /tmp/crumbcontext-pypi-proof/
+            /tmp/crumbcontext-pypi-counterfactual/
+          if-no-files-found: error
+          retention-days: 30

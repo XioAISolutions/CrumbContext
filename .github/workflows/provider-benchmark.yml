@@ -1,0 +1,125 @@
+name: Provider benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: Provider adapter to measure
+        required: true
+        type: choice
+        options:
+          - anthropic
+          - openai
+      model:
+        description: Exact provider model identifier
+        required: true
+        type: string
+      no_images:
+        description: Force text-only routing
+        required: true
+        default: false
+        type: boolean
+      recent_turns:
+        description: Number of recent turns kept exact
+        required: true
+        default: "2"
+        type: string
+      run_label:
+        description: Short evidence label, such as sonnet-text-only
+        required: true
+        type: string
+  pull_request:
+    paths:
+      - .github/workflows/provider-benchmark.yml
+      - crumbcontext/evidence.py
+      - tests/test_evidence.py
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Verify the provider evidence contract
+        run: pytest tests/test_evidence.py
+
+  benchmark:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: provider-benchmarks
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      PROVIDER: ${{ inputs.provider }}
+      MODEL: ${{ inputs.model }}
+      NO_IMAGES: ${{ inputs.no_images }}
+      RECENT_TURNS: ${{ inputs.recent_turns }}
+      RUN_LABEL: ${{ inputs.run_label }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install the repository package
+        run: python -m pip install .
+      - name: Validate the guarded benchmark request
+        run: |
+          if [[ ! "$RECENT_TURNS" =~ ^[0-9]+$ ]]; then
+            echo "recent_turns must be a non-negative integer" >&2
+            exit 1
+          fi
+          if [[ ! "$RUN_LABEL" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "run_label may contain only letters, numbers, dot, underscore, and hyphen" >&2
+            exit 1
+          fi
+          case "$PROVIDER" in
+            anthropic)
+              test -n "$ANTHROPIC_API_KEY" || { echo "ANTHROPIC_API_KEY is not configured in provider-benchmarks" >&2; exit 1; }
+              ;;
+            openai)
+              test -n "$OPENAI_API_KEY" || { echo "OPENAI_API_KEY is not configured in provider-benchmarks" >&2; exit 1; }
+              ;;
+            *)
+              echo "unsupported provider: $PROVIDER" >&2
+              exit 1
+              ;;
+          esac
+          test -n "$MODEL" || { echo "an exact model identifier is required" >&2; exit 1; }
+      - name: Run the same-request provider counterfactual
+        run: |
+          args=(
+            counterfactual
+            --provider "$PROVIDER"
+            --model "$MODEL"
+            --recent-turns "$RECENT_TURNS"
+            --max-tokens 1024
+            --timeout 180
+            --out provider-proof
+          )
+          if [[ "$NO_IMAGES" == "true" ]]; then
+            args+=(--no-images)
+          fi
+          crumbcontext "${args[@]}"
+      - name: Validate measured evidence, recall, hashes, and credential safety
+        run: |
+          python -m crumbcontext.evidence \
+            --report provider-proof/counterfactual.json \
+            --artifact-root provider-proof \
+            --provider "$PROVIDER" \
+            --requested-model "$MODEL" \
+            --summary "$GITHUB_STEP_SUMMARY"
+      - name: Export reproducible provider evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: provider-proof-${{ inputs.provider }}-${{ inputs.run_label }}-${{ github.run_id }}
+          path: provider-proof/
+          if-no-files-found: error
+          retention-days: 90
