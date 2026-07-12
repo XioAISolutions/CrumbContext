@@ -6,6 +6,7 @@ CrumbContext routes long AI context across exact, cache, CRUMB, image, and summa
 
 - [Project README](../README.md) — installation, proof, CLI, input model, and safety boundaries.
 - [Python integration API](PYTHON_API.md) — supported imports, provider-neutral requests, native payload builders, and runnable examples.
+- [Routing profiles and schemas](ROUTING_PROFILES.md) — named policies, resolved configuration, legacy evidence compatibility, and response redaction.
 - [Architecture](ARCHITECTURE.md) — routing model, lanes, artifacts, and trust boundaries.
 - [Counterfactual guide](COUNTERFACTUAL.md) — baseline-versus-routed measurement and report structure.
 - [Provider-measured benchmarks](PROVIDER_BENCHMARKS.md) — guarded real-provider evidence workflow and claims contract.
