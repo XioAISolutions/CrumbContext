@@ -14,8 +14,18 @@ on:
         description: Exact provider model identifier
         required: true
         type: string
+      profile:
+        description: Named routing policy recorded in the evidence bundle
+        required: true
+        default: safe-default
+        type: choice
+        options:
+          - safe-default
+          - text-only
+          - cache-heavy
+          - strict-exact
       no_images:
-        description: Force text-only routing
+        description: Force text-only routing in addition to the selected profile
         required: true
         default: false
         type: boolean
@@ -24,6 +34,11 @@ on:
         required: true
         default: "2"
         type: string
+      redact_responses:
+        description: Omit provider response bodies from saved JSON and HTML
+        required: true
+        default: true
+        type: boolean
       run_label:
         description: Short evidence label, such as sonnet-text-only
         required: true
@@ -32,7 +47,12 @@ on:
     paths:
       - .github/workflows/provider-benchmark.yml
       - crumbcontext/evidence.py
+      - crumbcontext/profiles.py
+      - crumbcontext/schemas.py
       - tests/test_evidence.py
+      - tests/test_profiles.py
+      - tests/test_schemas.py
+      - tests/test_redaction.py
 
 permissions:
   contents: read
@@ -48,8 +68,13 @@ jobs:
           python-version: "3.12"
       - name: Install test dependencies
         run: python -m pip install -e '.[dev]'
-      - name: Verify the provider evidence contract
-        run: pytest tests/test_evidence.py
+      - name: Verify provider evidence, profiles, schemas, and redaction contracts
+        run: >-
+          pytest
+          tests/test_evidence.py
+          tests/test_profiles.py
+          tests/test_schemas.py
+          tests/test_redaction.py
 
   benchmark:
     if: github.event_name == 'workflow_dispatch'
@@ -60,8 +85,10 @@ jobs:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       PROVIDER: ${{ inputs.provider }}
       MODEL: ${{ inputs.model }}
+      PROFILE: ${{ inputs.profile }}
       NO_IMAGES: ${{ inputs.no_images }}
       RECENT_TURNS: ${{ inputs.recent_turns }}
+      REDACT_RESPONSES: ${{ inputs.redact_responses }}
       RUN_LABEL: ${{ inputs.run_label }}
     steps:
       - uses: actions/checkout@v7
@@ -99,6 +126,7 @@ jobs:
             counterfactual
             --provider "$PROVIDER"
             --model "$MODEL"
+            --profile "$PROFILE"
             --recent-turns "$RECENT_TURNS"
             --max-tokens 1024
             --timeout 180
@@ -107,8 +135,11 @@ jobs:
           if [[ "$NO_IMAGES" == "true" ]]; then
             args+=(--no-images)
           fi
+          if [[ "$REDACT_RESPONSES" == "true" ]]; then
+            args+=(--redact-responses)
+          fi
           crumbcontext "${args[@]}"
-      - name: Validate measured evidence, recall, hashes, and credential safety
+      - name: Validate measured evidence, recall, hashes, schema, and credential safety
         run: |
           python -m crumbcontext.evidence \
             --report provider-proof/counterfactual.json \
@@ -119,7 +150,7 @@ jobs:
       - name: Export reproducible provider evidence
         uses: actions/upload-artifact@v7
         with:
-          name: provider-proof-${{ inputs.provider }}-${{ inputs.run_label }}-${{ github.run_id }}
+          name: provider-proof-${{ inputs.provider }}-${{ inputs.profile }}-${{ inputs.run_label }}-${{ github.run_id }}
           path: provider-proof/
           if-no-files-found: error
           retention-days: 90
