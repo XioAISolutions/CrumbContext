@@ -11,6 +11,10 @@
 - Made the release contract reusable across future versions instead of hard-coding the v0.1.0 release date.
 - Added a documentation hub, provider-evidence guide, and post-release roadmap.
 - Documented mandatory post-release request cleanup and the repeatable trusted-publishing lifecycle.
+- Added a supported top-level Python API for block normalization, task specifications, baseline and routed requests, provider execution, and provider-native payload construction.
+- Added duplicate block-ID rejection and explicit provider-instance option handling at the integration boundary.
+- Added runnable offline Python examples and installed-wheel compatibility checks across Python 3.10, 3.11, and 3.12.
+- Added a documented public-import stability policy and direct application integration guide.
 
 ## 0.1.0 - 2026-07-12
 
