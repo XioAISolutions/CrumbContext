@@ -5,7 +5,9 @@
 - Added `crumbcontext counterfactual`, a same-task baseline-versus-routed comparison harness.
 - Added canonical request/source hashes, normalized usage and latency records, exact-value recall, JSON validity, required-string recall, task completion, and response-similarity scoring.
 - Added a deterministic offline mock provider, comparison HTML report, machine-readable result, and shareable counterfactual card.
-- Added a provider contract and custom fixture documentation without making provider-billing claims.
+- Added a safety-preserving Anthropic Messages adapter with native role mapping, exact-value sidecars, eligible historical image blocks, explicit prompt-cache breakpoints, provider-reported usage, latency, and request IDs.
+- Added fail-closed exact-text behavior for unsafe image-role mappings and mocked HTTP coverage for success, errors, caching, images, and full counterfactual runs.
+- Added provider documentation without making universal provider-billing claims.
 - Expanded CI to verify the counterfactual on Python 3.10, 3.11, and 3.12.
 
 ## 0.1.0
