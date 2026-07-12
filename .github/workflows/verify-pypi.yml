@@ -1,0 +1,50 @@
+name: Verify PyPI release
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/verify-pypi.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-pypi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install only from the public PyPI index
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --no-cache-dir \
+            --index-url https://pypi.org/simple \
+            "crumb-context==0.1.0"
+      - name: Verify installed metadata and CLI
+        run: |
+          python - <<'PY'
+          import importlib.metadata as metadata
+          import crumbcontext
+
+          assert metadata.version("crumb-context") == "0.1.0"
+          assert crumbcontext.__version__ == "0.1.0"
+          print("PyPI package metadata: PASS (crumb-context 0.1.0)")
+          PY
+          crumbcontext --version
+      - name: Run installed-package proof outside the repository
+        run: |
+          cd /tmp
+          crumbcontext benchmark --out crumbcontext-pypi-proof
+          crumbcontext counterfactual --provider mock --out crumbcontext-pypi-counterfactual
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          proof = json.loads(Path('/tmp/crumbcontext-pypi-proof/benchmark.json').read_text())
+          comparison = json.loads(Path('/tmp/crumbcontext-pypi-counterfactual/counterfactual.json').read_text())
+          assert proof['passed'] is True
+          assert comparison['passed'] is True
+          print('Installed PyPI benchmark and counterfactual: PASS')
+          PY
