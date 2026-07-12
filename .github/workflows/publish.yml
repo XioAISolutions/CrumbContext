@@ -111,7 +111,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: CrumbContext ${{ github.ref_name }}
-          body_path: docs/RELEASE_NOTES_v0.1.0.md
+          body_path: docs/RELEASE_NOTES_${{ github.ref_name }}.md
           files: release-dist/*
           fail_on_unmatched_files: true
           preserve_order: true
