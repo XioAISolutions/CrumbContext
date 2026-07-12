@@ -2,20 +2,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 from .counterfactual_evaluation import record_run, reduction, similarity
 from .counterfactual_models import CounterfactualResult, CounterfactualSpec
-from .counterfactual_payloads import (
-    all_exact_values,
-    baseline_request,
-    canonical_json,
-    routed_request,
-    sha256_text,
-)
-from .counterfactual_report import (
-    write_counterfactual_card,
-    write_counterfactual_report,
-)
+from .counterfactual_payloads import all_exact_values, baseline_request, canonical_json, routed_request, sha256_text
+from .counterfactual_report import write_counterfactual_card, write_counterfactual_report
 from .providers import Provider, get_provider
 from .router import RouterConfig
 
@@ -25,34 +17,30 @@ def run_counterfactual(
     output_dir: Path,
     provider: Provider | str = "mock",
     config: RouterConfig | None = None,
+    provider_options: dict[str, Any] | None = None,
 ) -> CounterfactualResult:
     """Run the same task against baseline and routed context payloads."""
 
-    resolved_provider = get_provider(provider) if isinstance(provider, str) else provider
     resolved_config = config or RouterConfig()
     output_dir.mkdir(parents=True, exist_ok=True)
+    routed_artifact_root = output_dir / "routed-artifacts"
+    options = dict(provider_options or {})
+    if isinstance(provider, str):
+        if provider.strip().lower() == "anthropic":
+            options.setdefault("artifact_root", routed_artifact_root)
+        resolved_provider = get_provider(provider, **options)
+    else:
+        if options:
+            raise ValueError("provider_options cannot be used with a provider instance")
+        resolved_provider = provider
 
     baseline_req = baseline_request(spec)
-    routed_req, plan = routed_request(
-        spec,
-        output_dir / "routed-artifacts",
-        resolved_config,
-    )
+    routed_req, plan = routed_request(spec, routed_artifact_root, resolved_config)
     baseline_response = resolved_provider.run(baseline_req)
     routed_response = resolved_provider.run(routed_req)
     expected = all_exact_values(spec.blocks)
-    baseline = record_run(
-        baseline_req,
-        baseline_response,
-        spec.evaluation,
-        expected,
-    )
-    routed = record_run(
-        routed_req,
-        routed_response,
-        spec.evaluation,
-        expected,
-    )
+    baseline = record_run(baseline_req, baseline_response, spec.evaluation, expected)
+    routed = record_run(routed_req, routed_response, spec.evaluation, expected)
     same_task = baseline_req.task == routed_req.task == spec.task
     result = CounterfactualResult(
         passed=(
@@ -69,29 +57,16 @@ def run_counterfactual(
         source_sha256=sha256_text(canonical_json(spec.to_dict())),
         baseline=baseline,
         routed=routed,
-        input_token_reduction_percent=reduction(
-            baseline_response.input_tokens,
-            routed_response.input_tokens,
-        ),
-        total_token_reduction_percent=reduction(
-            baseline_response.total_tokens,
-            routed_response.total_tokens,
-        ),
-        latency_delta_ms=round(
-            routed_response.latency_ms - baseline_response.latency_ms,
-            3,
-        ),
-        response_similarity=similarity(
-            baseline_response.text,
-            routed_response.text,
-        ),
+        input_token_reduction_percent=reduction(baseline_response.input_tokens, routed_response.input_tokens),
+        total_token_reduction_percent=reduction(baseline_response.total_tokens, routed_response.total_tokens),
+        latency_delta_ms=round(routed_response.latency_ms - baseline_response.latency_ms, 3),
+        response_similarity=similarity(baseline_response.text, routed_response.text),
         same_task=same_task,
         plan=plan.to_dict(),
         disclaimer=(
-            "The mock provider validates counterfactual mechanics and uses simulated token "
-            "accounting; it is not a provider-billing or model-quality claim. Provider adapters "
-            "must report native usage and preserve role/authority semantics before public savings "
-            "claims are made."
+            "Mock usage is simulated. Anthropic usage is provider-reported and includes uncached, "
+            "cache-read, and cache-creation input tokens. A single synthetic task is still not a "
+            "universal cost or quality claim; publish model, fixture, request hashes, and evaluation results."
         ),
     )
     _write_outputs(
@@ -124,10 +99,7 @@ def _write_outputs(
         "counterfactual.json": result.to_dict(),
     }
     for name, value in values.items():
-        (output_dir / name).write_text(
-            json.dumps(value, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
+        (output_dir / name).write_text(json.dumps(value, indent=2, ensure_ascii=False), encoding="utf-8")
     write_counterfactual_report(result, output_dir / "counterfactual.html")
     write_counterfactual_card(result, output_dir / "counterfactual-card.svg")
 

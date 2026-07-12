@@ -9,11 +9,7 @@ from pathlib import Path
 from . import __version__
 from .benchmark import run_benchmark
 from .bundle import load_blocks, route_to_directory
-from .counterfactual import (
-    CounterfactualSpec,
-    load_counterfactual_spec,
-    run_counterfactual,
-)
+from .counterfactual import CounterfactualSpec, load_counterfactual_spec, run_counterfactual
 from .demo import counterfactual_payload, write_counterfactual, write_demo
 from .router import RouterConfig, route_blocks
 
@@ -43,10 +39,7 @@ def cmd_route(args) -> int:
     plan = route_to_directory(blocks, out, _config(args))
     report = out / "report.html"
     print(f"Routed {len(blocks)} blocks to {out}")
-    print(
-        f"Estimated tokens: {plan.estimated_text_tokens:,} -> "
-        f"{plan.estimated_routed_tokens:,} ({plan.reduction_percent}% reduction)"
-    )
+    print(f"Estimated tokens: {plan.estimated_text_tokens:,} -> {plan.estimated_routed_tokens:,} ({plan.reduction_percent}% reduction)")
     print(f"Protected exact anchors: {plan.exact_anchor_count}")
     print(f"Open {report}")
     _open_report(report, args.open)
@@ -72,19 +65,25 @@ def cmd_benchmark(args) -> int:
     result = run_benchmark(out, _config(args))
     status = "PASS" if result.passed else "FAIL"
     print(f"CrumbContext benchmark: {status}")
-    print(
-        f"Estimated tokens: {result.estimated_text_tokens:,} -> "
-        f"{result.estimated_routed_tokens:,} "
-        f"({result.estimated_reduction_percent}% reduction)"
-    )
-    print(
-        f"Exact anchors: {result.exact_anchors_preserved}/"
-        f"{result.exact_anchors_expected} preserved"
-    )
+    print(f"Estimated tokens: {result.estimated_text_tokens:,} -> {result.estimated_routed_tokens:,} ({result.estimated_reduction_percent}% reduction)")
+    print(f"Exact anchors: {result.exact_anchors_preserved}/{result.exact_anchors_expected} preserved")
     print(f"Share card: {out / 'share-card.svg'}")
     print(f"Interactive report: {out / 'report.html'}")
     _open_report(out / "report.html", args.open)
     return 0 if result.passed else 1
+
+
+def _provider_options(args) -> dict:
+    if args.provider.strip().lower() == "mock":
+        return {}
+    options = {
+        "model": args.model,
+        "max_tokens": args.max_tokens,
+        "timeout_seconds": args.timeout,
+        "enable_cache": not args.no_cache,
+        "api_url": args.api_url,
+    }
+    return {key: value for key, value in options.items() if value is not None}
 
 
 def cmd_counterfactual(args) -> int:
@@ -101,6 +100,7 @@ def cmd_counterfactual(args) -> int:
         out,
         provider=args.provider,
         config=_config(args),
+        provider_options=_provider_options(args),
     )
     status = "PASS" if result.passed else "FAIL"
     print(f"CrumbContext counterfactual: {status}")
@@ -112,11 +112,7 @@ def cmd_counterfactual(args) -> int:
         f"{result.routed.response['input_tokens']:,} "
         f"({result.input_token_reduction_percent}% reduction)"
     )
-    print(
-        "Routed exact recall: "
-        f"{result.routed.evaluation.exact_found}/"
-        f"{result.routed.evaluation.exact_expected}"
-    )
+    print(f"Routed exact recall: {result.routed.evaluation.exact_found}/{result.routed.evaluation.exact_expected}")
     print(f"Response similarity: {result.response_similarity * 100:.1f}%")
     print(f"Report: {out / 'counterfactual.html'}")
     print(f"Share card: {out / 'counterfactual-card.svg'}")
@@ -127,10 +123,7 @@ def cmd_counterfactual(args) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="crumbcontext",
-        description=(
-            "Protect exact facts, route stale AI context, and produce "
-            "measurable context bundles."
-        ),
+        description="Protect exact facts, route stale AI context, and produce measurable context bundles.",
     )
     parser.add_argument("--version", action="version", version=f"crumbcontext {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -141,10 +134,7 @@ def build_parser() -> argparse.ArgumentParser:
     analyze.add_argument("--recent-turns", type=int, default=2)
     analyze.set_defaults(func=cmd_analyze)
 
-    route = sub.add_parser(
-        "route",
-        help="Write images, CRUMBs, summaries, exact anchors, and an HTML report",
-    )
+    route = sub.add_parser("route", help="Write images, CRUMBs, summaries, exact anchors, and an HTML report")
     route.add_argument("input")
     route.add_argument("--out", default="crumbcontext-output")
     route.add_argument("--no-images", action="store_true")
@@ -159,34 +149,25 @@ def build_parser() -> argparse.ArgumentParser:
     demo.add_argument("--open", action="store_true", help="Open the report in a browser")
     demo.set_defaults(func=cmd_demo)
 
-    benchmark = sub.add_parser(
-        "benchmark",
-        help="Run the reproducible self-check and generate a share card",
-    )
+    benchmark = sub.add_parser("benchmark", help="Run the reproducible self-check and generate a share card")
     benchmark.add_argument("--out", default="crumbcontext-proof")
     benchmark.add_argument("--no-images", action="store_true")
     benchmark.add_argument("--recent-turns", type=int, default=2)
     benchmark.add_argument("--open", action="store_true", help="Open the report in a browser")
     benchmark.set_defaults(func=cmd_benchmark)
 
-    counterfactual = sub.add_parser(
-        "counterfactual",
-        help="Run the same task against baseline and routed context payloads",
-    )
-    counterfactual.add_argument(
-        "input",
-        nargs="?",
-        help="JSON counterfactual spec; omit to use the bundled fixture",
-    )
-    counterfactual.add_argument("--provider", default="mock")
+    counterfactual = sub.add_parser("counterfactual", help="Run the same task against baseline and routed context payloads")
+    counterfactual.add_argument("input", nargs="?", help="JSON counterfactual spec; omit to use the bundled fixture")
+    counterfactual.add_argument("--provider", default="mock", help="mock or anthropic")
+    counterfactual.add_argument("--model", help="Provider model; Anthropic defaults to ANTHROPIC_MODEL or claude-sonnet-4-6")
+    counterfactual.add_argument("--max-tokens", type=int, default=1024)
+    counterfactual.add_argument("--timeout", type=float, default=120.0)
+    counterfactual.add_argument("--api-url", help=argparse.SUPPRESS)
+    counterfactual.add_argument("--no-cache", action="store_true", help="Disable Anthropic cache_control markers")
     counterfactual.add_argument("--out", default="crumbcontext-counterfactual")
     counterfactual.add_argument("--no-images", action="store_true")
     counterfactual.add_argument("--recent-turns", type=int, default=2)
-    counterfactual.add_argument(
-        "--open",
-        action="store_true",
-        help="Open the comparison report in a browser",
-    )
+    counterfactual.add_argument("--open", action="store_true", help="Open the comparison report in a browser")
     counterfactual.set_defaults(func=cmd_counterfactual)
     return parser
 
