@@ -110,3 +110,60 @@ def test_benchmark_honors_text_only_policy(tmp_path: Path):
     assert result.passed
     assert result.checks["image_policy_honored"]
     assert not any((tmp_path / "images").glob("*.png"))
+
+
+def test_counterfactual_harness_runs_same_task_and_preserves_exacts(tmp_path: Path):
+    from crumbcontext.counterfactual import CounterfactualSpec, run_counterfactual
+    from crumbcontext.demo import counterfactual_payload
+
+    result = run_counterfactual(
+        CounterfactualSpec.from_dict(counterfactual_payload()),
+        tmp_path,
+        provider="mock",
+    )
+    assert result.passed
+    assert result.same_task
+    assert result.baseline.evaluation.task_complete
+    assert result.routed.evaluation.task_complete
+    assert result.routed.evaluation.exact_recall == 1.0
+    assert (
+        result.routed.response["input_tokens"]
+        < result.baseline.response["input_tokens"]
+    )
+    assert result.usage_kind == "mock_simulated_not_billed"
+    assert result.baseline.request_sha256 != result.routed.request_sha256
+    assert (tmp_path / "counterfactual.json").is_file()
+    assert (tmp_path / "counterfactual.html").is_file()
+    assert (tmp_path / "counterfactual-card.svg").is_file()
+    assert (tmp_path / "baseline-request.json").is_file()
+    assert (tmp_path / "routed-request.json").is_file()
+
+
+def test_counterfactual_text_only_policy(tmp_path: Path):
+    from crumbcontext.counterfactual import CounterfactualSpec, run_counterfactual
+    from crumbcontext.demo import counterfactual_payload
+
+    result = run_counterfactual(
+        CounterfactualSpec.from_dict(counterfactual_payload()),
+        tmp_path,
+        provider="mock",
+        config=RouterConfig(vision_allowed=False),
+    )
+    assert result.passed
+    lanes = [block["lane"] for block in result.routed.request["blocks"]]
+    assert "image" not in lanes
+    assert not any((tmp_path / "routed-artifacts" / "images").glob("*.png"))
+
+
+def test_counterfactual_rejects_unknown_provider(tmp_path: Path):
+    import pytest
+
+    from crumbcontext.counterfactual import CounterfactualSpec, run_counterfactual
+    from crumbcontext.demo import counterfactual_payload
+
+    with pytest.raises(ValueError, match="unknown provider"):
+        run_counterfactual(
+            CounterfactualSpec.from_dict(counterfactual_payload()),
+            tmp_path,
+            provider="not-real",
+        )

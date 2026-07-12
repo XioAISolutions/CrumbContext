@@ -8,6 +8,7 @@ CrumbContext is built around one rule: **lossy optimization must never silently 
 python -m pip install -e '.[dev]'
 pytest
 crumbcontext benchmark --out proof
+crumbcontext counterfactual --provider mock --out comparison
 ```
 
 ## Valuable contributions
