@@ -1,0 +1,44 @@
+name: Feature proposal
+description: Propose a routing, benchmark, report, or integration improvement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Strong proposals describe the context class, failure mode, fallback, and evidence.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What concrete context failure or workflow gap does this solve?
+    validations:
+      required: true
+  - type: dropdown
+    id: context-class
+    attributes:
+      label: Context class
+      options:
+        - Authority / system / developer
+        - Current or recent turns
+        - Exact anchors
+        - Cache candidates
+        - CRUMB memory
+        - Image routing
+        - Summaries
+        - Provider adapter
+        - Benchmark or report
+    validations:
+      required: true
+  - type: textarea
+    id: failure
+    attributes:
+      label: Failure mode and fallback
+      description: What can go wrong, and when should the router fall back to exact text?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or minimal fixture
+      description: Include a synthetic example, expected routing decision, or benchmark design.

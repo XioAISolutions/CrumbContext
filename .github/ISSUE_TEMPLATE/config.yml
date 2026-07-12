@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: CRUMB format questions
+    url: https://github.com/XioAISolutions/crumb-format
+    about: Questions about the portable CRUMB grammar, parser, validator, or CLI.

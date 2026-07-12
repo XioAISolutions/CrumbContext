@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+build/
+dist/
+proof/
+crumbcontext-proof/
+crumbcontext-demo/
+crumbcontext-output/
+.DS_Store
+proof-*/
+docs/assets/hero-preview.png

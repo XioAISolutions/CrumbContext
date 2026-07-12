@@ -1,0 +1,26 @@
+{
+  "blocks": [
+    {
+      "id": "system",
+      "role": "system",
+      "kind": "instruction",
+      "content": "Never deploy without approval.",
+      "age_turns": 20,
+      "authoritative": true
+    },
+    {
+      "id": "old-log",
+      "role": "user",
+      "kind": "tool_result",
+      "content": "{\"path\":\"/workspace/app.py\",\"sha\":\"abcdef1234567890\",\"status\":\"ok\"}\n(repeat this line to exceed the image threshold in a real test)",
+      "age_turns": 9
+    },
+    {
+      "id": "current",
+      "role": "user",
+      "kind": "message",
+      "content": "Explain the last failure without changing production.",
+      "age_turns": 0
+    }
+  ]
+}

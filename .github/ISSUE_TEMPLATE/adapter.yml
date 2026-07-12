@@ -1,0 +1,29 @@
+name: Provider adapter proposal
+description: Propose an adapter with explicit role, cache, image, and fallback semantics.
+title: "[adapter] "
+labels: [enhancement, adapter]
+body:
+  - type: input
+    id: provider
+    attributes:
+      label: Provider/API
+    validations:
+      required: true
+  - type: textarea
+    id: roles
+    attributes:
+      label: How are system/developer/user roles preserved?
+    validations:
+      required: true
+  - type: textarea
+    id: counterfactual
+    attributes:
+      label: Same-request benchmark design
+    validations:
+      required: true
+  - type: textarea
+    id: fallback
+    attributes:
+      label: Safe fallback when verification fails
+    validations:
+      required: true

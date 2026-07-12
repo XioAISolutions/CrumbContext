@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="760" viewBox="0 0 1600 760" role="img" aria-labelledby="title desc">
+<title id="title">CrumbContext — context without the baggage</title>
+<desc id="desc">A safety-first router that protects exact facts and sends stale AI context to one of five explainable lanes</desc>
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#05070d"/><stop offset=".52" stop-color="#10182b"/><stop offset="1" stop-color="#08283b"/></linearGradient>
+  <linearGradient id="accent" x1="0" x2="1"><stop offset="0" stop-color="#a855f7"/><stop offset=".55" stop-color="#4f8cff"/><stop offset="1" stop-color="#20d8d8"/></linearGradient>
+  <radialGradient id="crumb" cx="40%" cy="32%"><stop offset="0" stop-color="#f8cf75"/><stop offset="1" stop-color="#d88332"/></radialGradient>
+  <filter id="blur"><feGaussianBlur stdDeviation="70"/></filter>
+  <filter id="glow"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect width="1600" height="760" rx="44" fill="url(#bg)"/>
+<circle cx="1410" cy="80" r="300" fill="#8b5cf6" opacity=".15" filter="url(#blur)"/>
+<circle cx="130" cy="710" r="320" fill="#22d3ee" opacity=".1" filter="url(#blur)"/>
+<g transform="translate(72 112)">
+  <circle cx="230" cy="255" r="190" fill="#091120" stroke="url(#accent)" stroke-width="6"/>
+  <circle cx="230" cy="255" r="157" fill="none" stroke="#31415f" stroke-width="2" stroke-dasharray="8 14"/>
+  <g fill="#22d3ee"><circle cx="230" cy="58" r="9"/><circle cx="417" cy="195" r="9"/><circle cx="346" cy="415" r="9"/><circle cx="114" cy="415" r="9"/><circle cx="43" cy="195" r="9"/></g>
+  <path d="M325 189c-35-59-124-78-184-37-61 42-80 128-40 190 39 61 126 84 188 47 47-29 71-79 65-129-33 11-67-14-62-51 14 0 25-7 33-20z" fill="url(#crumb)" stroke="#ffc96b" stroke-width="7"/>
+  <g fill="#6d351d"><circle cx="178" cy="202" r="14"/><circle cx="257" cy="182" r="11"/><circle cx="152" cy="280" r="10"/><circle cx="233" cy="310" r="15"/><circle cx="297" cy="266" r="9"/></g>
+  <g fill="none" stroke="#10223c" stroke-width="9" stroke-linecap="round"><path d="M171 243h1"/><path d="M265 243h1"/><path d="M194 277c20 18 45 18 65 0"/></g>
+  <text x="230" y="506" text-anchor="middle" fill="#7f91ad" font-family="ui-monospace,Menlo,monospace" font-size="17">exact facts stay exact</text>
+</g>
+<g transform="translate(548 102)">
+  <text x="0" y="35" fill="#8fa2c4" font-family="Inter,Arial,sans-serif" font-size="22" letter-spacing="7">OPEN-SOURCE CONTEXT ROUTER</text>
+  <text x="0" y="130" fill="url(#accent)" font-family="Inter,Arial,sans-serif" font-weight="850" font-size="88">CrumbContext</text>
+  <text x="0" y="188" fill="#ffffff" font-family="Inter,Arial,sans-serif" font-weight="700" font-size="39">Give every AI the context it needs—</text>
+  <text x="0" y="236" fill="#c4cede" font-family="Inter,Arial,sans-serif" font-size="34">not the entire conversation.</text>
+  <text x="0" y="294" fill="#91a2bc" font-family="Inter,Arial,sans-serif" font-size="22">Authority remains native text. Exact values get locked first.</text>
+  <text x="0" y="326" fill="#91a2bc" font-family="Inter,Arial,sans-serif" font-size="22">Everything else takes the cheapest explainable lane.</text>
+  <g transform="translate(0 378)">
+    <rect x="0" width="174" height="82" rx="18" fill="#101a2b" stroke="#2d3c58"/><text x="20" y="30" fill="#91a2bc" font-family="Inter,Arial,sans-serif" font-size="14">AUTHORITY</text><text x="20" y="59" fill="#ffffff" font-family="Inter,Arial,sans-serif" font-weight="700" font-size="21">EXACT</text>
+    <rect x="190" width="154" height="82" rx="18" fill="#101a2b" stroke="#2d3c58"/><text x="210" y="30" fill="#91a2bc" font-family="Inter,Arial,sans-serif" font-size="14">REUSED</text><text x="210" y="59" fill="#54a8ff" font-family="Inter,Arial,sans-serif" font-weight="700" font-size="21">CACHE</text>
+    <rect x="360" width="154" height="82" rx="18" fill="#101a2b" stroke="#2d3c58"/><text x="380" y="30" fill="#91a2bc" font-family="Inter,Arial,sans-serif" font-size="14">MEMORY</text><text x="380" y="59" fill="#c27cff" font-family="Inter,Arial,sans-serif" font-weight="700" font-size="21">CRUMB</text>
+    <rect x="530" width="154" height="82" rx="18" fill="#101a2b" stroke="#2d3c58"/><text x="550" y="30" fill="#91a2bc" font-family="Inter,Arial,sans-serif" font-size="14">DENSE</text><text x="550" y="59" fill="#ff9f4f" font-family="Inter,Arial,sans-serif" font-weight="700" font-size="21">IMAGE</text>
+    <rect x="700" width="188" height="82" rx="18" fill="#101a2b" stroke="#2d3c58"/><text x="720" y="30" fill="#91a2bc" font-family="Inter,Arial,sans-serif" font-size="14">SEMANTIC</text><text x="720" y="59" fill="#52dfb5" font-family="Inter,Arial,sans-serif" font-weight="700" font-size="21">SUMMARY</text>
+  </g>
+  <g transform="translate(0 500)">
+    <rect width="888" height="90" rx="20" fill="#090f1b" stroke="#283851"/>
+    <circle cx="34" cy="45" r="7" fill="#53f2a3" filter="url(#glow)"/>
+    <text x="58" y="37" fill="#9babc4" font-family="ui-monospace,Menlo,monospace" font-size="18">$ pip install crumb-context</text>
+    <text x="58" y="65" fill="#ffffff" font-family="ui-monospace,Menlo,monospace" font-size="18">$ crumbcontext benchmark --out proof --open</text>
+  </g>
+</g>
+</svg>

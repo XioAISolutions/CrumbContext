@@ -1,0 +1,31 @@
+name: Routing or exactness bug
+description: Report the smallest context fixture that routes incorrectly or loses an exact value.
+title: "[bug] "
+labels: [bug]
+body:
+  - type: textarea
+    id: fixture
+    attributes:
+      label: Minimal fixture
+      description: Remove private data. Include the smallest JSON context block that reproduces the problem.
+      render: json
+    validations:
+      required: true
+  - type: dropdown
+    id: expected_lane
+    attributes:
+      label: Expected lane
+      options: [exact, cache, crumb, image, summary]
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: CrumbContext version
+      placeholder: 0.1.0

@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use CrumbContext in research or technical work, please cite this software."
+title: "CrumbContext"
+type: software
+version: 0.1.0
+date-released: 2026-07-12
+authors:
+  - name: "XIO AI Solutions"
+repository-code: "https://github.com/XioAISolutions/CrumbContext"
+url: "https://github.com/XioAISolutions/CrumbContext"
+license: MIT
+abstract: "A safety-first context router for AI agents that protects exact facts and routes stale context to explainable representations."
+keywords:
+  - context engineering
+  - AI agents
+  - large language models
+  - prompt caching
+  - agent memory
+  - token optimization

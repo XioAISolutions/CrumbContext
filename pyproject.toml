@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crumb-context"
+version = "0.1.0"
+description = "Safety-first context routing for AI agents: exact facts stay exact while stale context takes a cheaper lane."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "XIO AI Solutions" }]
+keywords = [
+  "ai", "llm", "ai-agents", "context-engineering", "context-window",
+  "prompt-caching", "agent-memory", "llmops", "token-optimization",
+  "developer-tools", "local-ai"
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = ["Pillow>=10.0"]
+
+[project.optional-dependencies]
+dev = ["build>=1.2", "pytest>=8.0", "twine>=5.0"]
+
+[project.urls]
+Homepage = "https://github.com/XioAISolutions/CrumbContext"
+Repository = "https://github.com/XioAISolutions/CrumbContext"
+Issues = "https://github.com/XioAISolutions/CrumbContext/issues"
+Changelog = "https://github.com/XioAISolutions/CrumbContext/blob/main/CHANGELOG.md"
+
+[project.scripts]
+crumbcontext = "crumbcontext.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["crumbcontext*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.setuptools.package-data]
+"crumbcontext" = ["py.typed"]

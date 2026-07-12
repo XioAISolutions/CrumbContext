@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+<defs>
+  <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+    <stop offset="0" stop-color="#070b13"/><stop offset="1" stop-color="#14233b"/>
+  </linearGradient>
+  <linearGradient id="glow" x1="0" x2="1">
+    <stop offset="0" stop-color="#7c5cff"/><stop offset="1" stop-color="#27d9ff"/>
+  </linearGradient>
+</defs>
+<rect width="1200" height="630" rx="34" fill="url(#bg)"/>
+<circle cx="1070" cy="72" r="210" fill="#7c5cff" opacity=".12"/>
+<circle cx="104" cy="585" r="240" fill="#27d9ff" opacity=".08"/>
+<text x="72" y="92" fill="#94a3bd" font-family="Inter,Arial,sans-serif" font-size="24" letter-spacing="4">CRUMBCONTEXT BENCHMARK</text>
+<text x="72" y="165" fill="#ffffff" font-family="Inter,Arial,sans-serif" font-weight="800" font-size="62">Context without the baggage.</text>
+<text x="72" y="215" fill="#aab6cc" font-family="Inter,Arial,sans-serif" font-size="25">Exact facts stay exact. Stale context takes the cheaper lane.</text>
+<g transform="translate(72 276)">
+  <rect width="315" height="174" rx="22" fill="#101827" stroke="#29344a"/>
+  <text x="28" y="46" fill="#8fa0ba" font-family="Inter,Arial,sans-serif" font-size="18">ESTIMATED REDUCTION</text>
+  <text x="28" y="120" fill="url(#glow)" font-family="Inter,Arial,sans-serif" font-size="66" font-weight="800">65.8%</text>
+</g>
+<g transform="translate(414 276)">
+  <rect width="315" height="174" rx="22" fill="#101827" stroke="#29344a"/>
+  <text x="28" y="46" fill="#8fa0ba" font-family="Inter,Arial,sans-serif" font-size="18">EXACT ANCHORS</text>
+  <text x="28" y="120" fill="#ffffff" font-family="Inter,Arial,sans-serif" font-size="62" font-weight="800">31/31</text>
+</g>
+<g transform="translate(756 276)">
+  <rect width="372" height="174" rx="22" fill="#101827" stroke="#29344a"/>
+  <text x="28" y="46" fill="#8fa0ba" font-family="Inter,Arial,sans-serif" font-size="18">SELF-CHECK</text>
+  <text x="28" y="120" fill="#53f2a3" font-family="Inter,Arial,sans-serif" font-size="58" font-weight="800">PASS</text>
+</g>
+<text x="72" y="526" fill="#8fa0ba" font-family="ui-monospace,Menlo,monospace" font-size="20">crumbcontext benchmark --out proof</text>
+<text x="72" y="572" fill="#65738b" font-family="Inter,Arial,sans-serif" font-size="17">Planning estimates, not provider billing claims • github.com/XioAISolutions/CrumbContext</text>
+</svg>
