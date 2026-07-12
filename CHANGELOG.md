@@ -21,6 +21,10 @@
 - Preserved legacy v0.1 evidence compatibility when schema markers are absent while rejecting unknown explicit schemas.
 - Added optional provider response-body redaction for saved JSON and HTML without removing hashes, usage, routing policy, or evaluation.
 - Added CLI, Python API, provider-evidence, compatibility, and redaction tests for the new policy surface.
+- Added a responsive, searchable static documentation site generated directly from repository Markdown.
+- Added local search, mobile navigation, canonical metadata, sitemap, `robots.txt`, and a custom 404 page without analytics, CDNs, or third-party runtime scripts.
+- Added pull-request documentation previews, local-link and anchor validation, and least-privilege GitHub Pages deployment from Actions.
+- Updated package metadata to point future PyPI releases at the browsable GitHub Pages documentation URL.
 
 ## 0.1.0 - 2026-07-12
 
