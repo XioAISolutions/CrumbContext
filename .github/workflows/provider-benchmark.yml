@@ -89,73 +89,14 @@ jobs:
             args+=(--no-images)
           fi
           crumbcontext "${args[@]}"
-      - name: Validate measured evidence and exact recall
+      - name: Validate measured evidence, recall, hashes, and credential safety
         run: |
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          report = json.loads(Path('provider-proof/counterfactual.json').read_text(encoding='utf-8'))
-          expected_provider = os.environ['PROVIDER']
-          assert report['passed'] is True
-          assert report['provider'] == expected_provider
-          assert isinstance(report['model'], str) and report['model']
-          assert report['usage_kind'] != 'mock_simulated_not_billed'
-          routed = report['routed']['evaluation']
-          assert routed['exact_found'] == routed['exact_expected']
-          assert routed['required_found'] == routed['required_expected']
-          assert routed['task_complete'] is True
-          PY
-      - name: Refuse credential leakage in generated artifacts
-        run: |
-          python - <<'PY'
-          import os
-          from pathlib import Path
-
-          root = Path('provider-proof')
-          secrets = [
-              os.environ.get('ANTHROPIC_API_KEY', ''),
-              os.environ.get('OPENAI_API_KEY', ''),
-          ]
-          secrets = [value.encode() for value in secrets if value]
-          for path in root.rglob('*'):
-              if not path.is_file():
-                  continue
-              payload = path.read_bytes()
-              for secret in secrets:
-                  if secret in payload:
-                      raise SystemExit(f'credential leakage detected in {path}')
-          PY
-      - name: Write evidence summary
-        run: |
-          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
-          import json
-          import os
-          from pathlib import Path
-
-          data = json.loads(Path('provider-proof/counterfactual.json').read_text(encoding='utf-8'))
-          baseline = data['baseline']
-          routed = data['routed']
-          evaluation = routed['evaluation']
-          comparison = data['comparison']
-          print('# CrumbContext provider benchmark')
-          print()
-          print(f"- Requested provider/model: `{os.environ['PROVIDER']}` / `{os.environ['MODEL']}`")
-          print(f"- Reported provider/model: `{data['provider']}` / `{data['model']}`")
-          print(f"- Usage kind: `{data['usage_kind']}`")
-          print(f"- Task SHA-256: `{data['task_sha256']}`")
-          print(f"- Source SHA-256: `{data['source_sha256']}`")
-          print(f"- Baseline request SHA-256: `{baseline['request_sha256']}`")
-          print(f"- Routed request SHA-256: `{routed['request_sha256']}`")
-          print(f"- Baseline input tokens: {baseline['response']['input_tokens']:,}")
-          print(f"- Routed input tokens: {routed['response']['input_tokens']:,}")
-          print(f"- Input-token reduction: {comparison['input_token_reduction_percent']}%")
-          print(f"- Exact recall: {evaluation['exact_found']}/{evaluation['exact_expected']}")
-          print(f"- Required-rule recall: {evaluation['required_found']}/{evaluation['required_expected']}")
-          print(f"- Response similarity: {comparison['response_similarity'] * 100:.1f}%")
-          print(f"- Passed: `{data['passed']}`")
-          PY
+          python -m crumbcontext.evidence \
+            --report provider-proof/counterfactual.json \
+            --artifact-root provider-proof \
+            --provider "$PROVIDER" \
+            --requested-model "$MODEL" \
+            --summary "$GITHUB_STEP_SUMMARY"
       - name: Export reproducible provider evidence
         uses: actions/upload-artifact@v7
         with:
