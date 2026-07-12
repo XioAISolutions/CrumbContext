@@ -36,7 +36,7 @@ Open **Actions → Provider benchmark → Run workflow** and provide:
 | `model` | Exact provider model identifier used for the run |
 | `profile` | Named routing policy recorded in the evidence bundle |
 | `no_images` | Explicitly disable images in addition to the selected profile |
-| `recent_turns` | Explicit recent-turn override recorded in the resolved config |
+| `recent_turns` | Optional exact-lane override; leave blank to use the selected profile default |
 | `redact_responses` | Omit provider response bodies from saved JSON and HTML; defaults to true |
 | `run_label` | Filesystem-safe evidence label |
 
@@ -44,8 +44,8 @@ The workflow always uses the repository's bundled public counterfactual fixture.
 
 Recommended first runs for each provider:
 
-1. `safe-default`, images allowed, response redaction enabled;
-2. `text-only`, response redaction enabled.
+1. `safe-default`, images allowed, no recent-turn override, response redaction enabled;
+2. `text-only`, no recent-turn override, response redaction enabled.
 
 Do not compare results that use different models, fixtures, tasks, cache settings, or routing profiles as though only the image policy changed.
 
