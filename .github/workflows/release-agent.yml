@@ -1,0 +1,92 @@
+name: Release agent
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: release-agent-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  authorize-and-dispatch:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      checks: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Detect and validate a maintainer release request
+        id: request
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [[ ! -f .github/release-request.json ]]; then
+            echo "requested=false" >> "$GITHUB_OUTPUT"
+            echo "No release request is present on the CI-tested main commit."
+            exit 0
+          fi
+          python scripts/release_agent.py \
+            --request .github/release-request.json \
+            --head-sha "$HEAD_SHA" \
+            --github-output "$GITHUB_OUTPUT"
+      - name: Wait for CodeQL on the same commit
+        if: steps.request.outputs.requested == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ steps.request.outputs.commit }}
+        run: |
+          for attempt in $(seq 1 60); do
+            gh api \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs?per_page=100" \
+              > /tmp/check-runs.json
+            state="$(python - <<'PY'
+          import json
+          from pathlib import Path
+
+          runs = [
+              item for item in json.loads(Path('/tmp/check-runs.json').read_text())['check_runs']
+              if item.get('name') == 'analyze'
+          ]
+          failed = {'failure', 'cancelled', 'timed_out', 'action_required', 'startup_failure'}
+          if any(item.get('conclusion') in failed for item in runs):
+              print('failure')
+          elif runs and all(item.get('status') == 'completed' and item.get('conclusion') == 'success' for item in runs):
+              print('success')
+          else:
+              print('pending')
+          PY
+            )"
+            if [[ "$state" == "success" ]]; then
+              echo "CodeQL passed for $HEAD_SHA"
+              exit 0
+            fi
+            if [[ "$state" == "failure" ]]; then
+              echo "CodeQL failed for $HEAD_SHA" >&2
+              exit 1
+            fi
+            echo "CodeQL is still pending for $HEAD_SHA (attempt $attempt/60)"
+            sleep 10
+          done
+          echo "Timed out waiting for CodeQL on $HEAD_SHA" >&2
+          exit 1
+      - name: Dispatch the attested GitHub and PyPI publish workflow
+        if: steps.request.outputs.requested == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.request.outputs.tag }}
+          COMMIT: ${{ steps.request.outputs.commit }}
+        run: gh workflow run publish.yml --ref main -f tag="$TAG" -f commit="$COMMIT"

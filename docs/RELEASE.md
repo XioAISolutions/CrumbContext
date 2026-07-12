@@ -7,12 +7,12 @@ This is the authoritative checklist for publishing CrumbContext. Repository-side
 A release must not proceed unless:
 
 - `pyproject.toml`, `crumbcontext/__init__.py`, and `CITATION.cff` contain the same version;
-- the pushed tag is exactly `v<version>`;
+- the release tag is exactly `v<version>`;
 - tests pass on Python 3.10, 3.11, and 3.12;
 - the offline benchmark and mock counterfactual pass;
 - the built wheel installs and runs from an isolated virtual environment;
 - `twine check` passes for the wheel and source distribution;
-- CodeQL passes;
+- CodeQL passes on the exact release commit;
 - documentation names both Anthropic and OpenAI adapters accurately;
 - the GitHub release includes the wheel, source archive, SHA-256 checksums, release manifest, and SPDX SBOM;
 - GitHub provenance and SBOM attestations are created for the Python distributions;
@@ -43,11 +43,11 @@ While signed in to the intended PyPI owner account, open the account publishing 
 
 No PyPI password, API token, or GitHub repository secret is required.
 
-A pending publisher does not reserve the package name. Push the first release tag soon after registering it.
+A pending publisher does not reserve the package name. Trigger the first release promptly after registering it.
 
 ## GitHub environment behavior
 
-The workflow references a GitHub environment named `pypi`. When the first tagged workflow runs, GitHub creates that environment automatically if it does not already exist.
+The workflow references a GitHub environment named `pypi`. When the first release workflow runs, GitHub creates that environment automatically if it does not already exist.
 
 Pre-creating it is optional. An administrator may open **Settings → Environments → New environment**, name it exactly `pypi`, and add required reviewers or deployment protections before the first release. Those controls are useful but are not required for OIDC Trusted Publishing to function.
 
@@ -59,14 +59,49 @@ These improve governance and presentation but do not block package publication:
 - add the description, topics, and social preview from `docs/LAUNCH_KIT.md`;
 - enable Discussions only if it will be actively maintained.
 
-## What the tag pipeline does
+## Agent-assisted deployment
 
-A tag matching `v*.*.*` triggers `.github/workflows/publish.yml`.
+The preferred first-release path is a maintainer-authored `.github/release-request.json` committed to `main` after the PyPI pending publisher is registered.
 
-The workflow then:
+Example request:
 
-1. checks out the exact tag;
-2. confirms the tag equals `v<package-version>`;
+```json
+{
+  "publish": true,
+  "version": "0.1.0",
+  "branch": "main"
+}
+```
+
+The request contains no password, token, or PyPI credential. After the request reaches `main`:
+
+1. normal CI validates the package on Python 3.10, 3.11, and 3.12;
+2. the release agent validates the request against `pyproject.toml` and the CI-tested commit;
+3. the agent waits for CodeQL on that same commit;
+4. the agent dispatches `publish.yml` with the exact tag and commit;
+5. the publish workflow builds from that immutable commit, creates the tag and GitHub release, and uses PyPI OIDC Trusted Publishing.
+
+A release request is ignored when `publish` is not exactly `true`, the version differs from package metadata, the branch is not `main`, the optional commit does not match the CI-tested commit, or release notes are missing.
+
+## Manual fallback
+
+A maintainer may still create and push the tag manually:
+
+```bash
+git checkout main
+git pull --ff-only
+git tag -a v0.1.0 -m "CrumbContext v0.1.0"
+git push origin v0.1.0
+```
+
+The `publish.yml` workflow supports both a direct tag push and an agent dispatch carrying an exact tag and commit.
+
+## What the publish workflow does
+
+The workflow:
+
+1. checks out the exact CI-tested commit or tag;
+2. confirms the tag equals `v<package-version>` and the checkout matches the requested commit;
 3. builds one wheel and one source distribution;
 4. runs `twine check`;
 5. installs the wheel outside the source tree and runs the benchmark and mock counterfactual;
@@ -77,25 +112,6 @@ The workflow then:
 10. publishes only the wheel and source distribution to PyPI using GitHub OIDC.
 
 The GitHub release is created before the PyPI job. The final publish job uses the `pypi` environment and must match the pending Trusted Publisher configuration exactly.
-
-## Publish v0.1.0
-
-After the pending publisher is registered and `main` is green:
-
-```bash
-git checkout main
-git pull --ff-only
-git tag -a v0.1.0 -m "CrumbContext v0.1.0"
-git push origin v0.1.0
-```
-
-Do not manually upload files to PyPI and do not create a duplicate PyPI API token. The tag push is the release command.
-
-Watch the **Publish release** workflow. It should finish in this order:
-
-```text
-build → release → publish
-```
 
 Expected GitHub release assets:
 
@@ -166,6 +182,8 @@ Publish the provider name, exact model identifier, fixture, request hashes, rout
 ## Failure policy
 
 - If the tag and package version differ, stop.
+- If the requested commit differs from the CI-tested commit, stop.
+- If CI or CodeQL fails, stop.
 - If the isolated wheel smoke test fails, stop.
 - If checksums, the SBOM, or attestations fail, stop.
 - If exact recall is below 100% for a benchmark that requires exact values, stop and inspect the bundle.

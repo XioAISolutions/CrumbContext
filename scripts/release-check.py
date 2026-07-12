@@ -33,6 +33,8 @@ def check_release(tag: str | None = None) -> str:
     readme = read("README.md")
     security = read("SECURITY.md")
     publish = read(".github/workflows/publish.yml")
+    release_agent_workflow = read(".github/workflows/release-agent.yml")
+    release_agent_script = read("scripts/release_agent.py")
     release_assets = read("scripts/release_assets.py")
 
     project_version = capture(
@@ -72,7 +74,10 @@ def check_release(tag: str | None = None) -> str:
         "docs/RELEASE.md",
         release_notes,
         "scripts/release_assets.py",
+        "scripts/release_agent.py",
         "tests/test_release_assets.py",
+        "tests/test_release_agent.py",
+        ".github/workflows/release-agent.yml",
         "LICENSE",
         "SECURITY.md",
     )
@@ -117,23 +122,51 @@ def check_release(tag: str | None = None) -> str:
         raise AssertionError("CHANGELOG must contain the dated v0.1.0 release section")
 
     publish_requirements = (
+        "workflow_dispatch:",
+        "commit:",
         "tags:",
         '"v*.*.*"',
+        "RELEASE_TAG:",
+        "RELEASE_COMMIT:",
         "python scripts/release-check.py --tag",
+        "test \"$(git rev-parse HEAD)\" = \"$RELEASE_COMMIT\"",
         "python -m build --outdir python-dist",
         "python -m twine check python-dist/*",
         "python scripts/release_assets.py",
         "actions/attest@v4",
         "artifact-metadata: write",
         "softprops/action-gh-release@v3",
+        "target_commitish: ${{ env.RELEASE_COMMIT }}",
         "contents: write",
-        "body_path: docs/RELEASE_NOTES_${{ github.ref_name }}.md",
+        "body_path: docs/RELEASE_NOTES_${{ env.RELEASE_TAG }}.md",
         "packages-dir: python-dist/",
         "pypa/gh-action-pypi-publish@release/v1",
     )
     for fragment in publish_requirements:
         if fragment not in publish:
             raise AssertionError(f"publish workflow is missing: {fragment}")
+
+    agent_requirements = (
+        'workflows: ["CI"]',
+        "github.event.workflow_run.conclusion == 'success'",
+        "scripts/release_agent.py",
+        "Wait for CodeQL on the same commit",
+        "gh workflow run publish.yml",
+        '-f tag="$TAG" -f commit="$COMMIT"',
+    )
+    for fragment in agent_requirements:
+        if fragment not in release_agent_workflow:
+            raise AssertionError(f"release-agent workflow is missing: {fragment}")
+
+    script_requirements = (
+        'request.get("publish") is not True',
+        'branch != "main"',
+        "release request commit does not match the CI-tested main commit",
+        'tag = f"v{version}"',
+    )
+    for fragment in script_requirements:
+        if fragment not in release_agent_script:
+            raise AssertionError(f"release-agent validator is missing: {fragment}")
 
     asset_requirements = (
         '"SPDX-2.3"',
