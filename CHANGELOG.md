@@ -2,7 +2,11 @@
 
 ## Unreleased
 
-No unreleased changes.
+- Consumed the one-shot `v0.1.0` release request after successful publication.
+- Made the release agent idempotent by treating an existing release tag as a safe no-op.
+- Added an inert release-request template for future versions.
+- Added permanent public-PyPI verification across Python 3.10, 3.11, and 3.12 with exported benchmark and counterfactual proofs.
+- Documented mandatory post-release request cleanup and the repeatable trusted-publishing lifecycle.
 
 ## 0.1.0 - 2026-07-12
 
