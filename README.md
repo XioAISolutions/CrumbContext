@@ -247,7 +247,7 @@ Start with [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). The non-negotiable in
 4. compare the same request before and after routing;
 5. fall back to exact text when confidence drops.
 
-Provider adapters are deliberately outside v0.1 until those role boundaries can be preserved.
+The Anthropic adapter is the reference implementation; every new adapter must preserve these role and authority boundaries.
 
 </details>
 
@@ -332,6 +332,7 @@ crumbcontext analyze INPUT
 crumbcontext route INPUT --out routed [--open] [--no-images]
 crumbcontext demo --out demo [--open] [--no-images]
 crumbcontext benchmark --out proof [--open] [--no-images]
+crumbcontext counterfactual [INPUT] --provider mock|anthropic --out comparison [--open]
 ```
 
 Useful configuration knobs in `RouterConfig`:
@@ -345,6 +346,24 @@ Useful configuration knobs in `RouterConfig`:
 | `vision_allowed` | `True` | disables image routing when false |
 | `summary_ratio` | `0.22` | planning estimate for summary size |
 | `crumb_ratio` | `0.30` | planning estimate for structured CRUMB size |
+
+
+## 🟠 Measure with Anthropic
+
+The provider-neutral counterfactual harness now includes a safety-preserving Anthropic Messages adapter:
+
+```bash
+export ANTHROPIC_API_KEY='...'
+crumbcontext counterfactual \
+  --provider anthropic \
+  --model claude-sonnet-4-6 \
+  --out anthropic-proof \
+  --open
+```
+
+It preserves system/developer authority, keeps user and assistant roles intact, sends exact values as native text, supports explicit prompt-cache breakpoints, and uses images only for eligible non-authoritative historical user/tool context. Provider-reported usage includes uncached input, cache reads, cache creation, output tokens, latency, and the Anthropic request ID.
+
+See [`docs/ANTHROPIC.md`](docs/ANTHROPIC.md) for the mapping and threat model. The API key is read only from `ANTHROPIC_API_KEY` and is never stored.
 
 ## 🔬 What the benchmark actually proves
 
@@ -366,13 +385,13 @@ It does **not** prove:
 - production readiness for autonomous agents;
 - protection against every possible secret or identifier format.
 
-The next research milestone is a same-request counterfactual harness that records provider usage, latency, exact-value recall, task completion, and model output quality.
+The same-request counterfactual harness now records usage, latency, exact-value recall, task completion, response similarity, and request/response hashes. The next research milestone is broader reproducible provider coverage across models and fixtures.
 
 ## 🔐 Privacy and security
 
 CrumbContext is local-first, but its outputs can contain sensitive information.
 
-- The router does not call a provider in v0.1.
+- Routing, demo, and benchmark commands remain offline. The counterfactual command calls a provider only when an explicit network provider such as `anthropic` is selected.
 - Exact-anchor sidecars intentionally contain the extracted exact values.
 - Generated images contain sanitized historical context.
 - Output directories should be treated as sensitive project artifacts.
@@ -420,8 +439,8 @@ Found a miss? Open an issue with the smallest synthetic reproduction.
 - [x] interactive HTML report
 - [x] self-verifying offline benchmark
 - [x] shareable proof card
-- [ ] same-request provider counterfactual harness
-- [ ] Anthropic Messages adapter
+- [x] same-request provider counterfactual harness
+- [x] Anthropic Messages adapter
 - [ ] OpenAI Responses adapter
 - [ ] local OCR/VLM render verification
 - [ ] provider/model regression profiles and kill switches
@@ -485,7 +504,7 @@ No. Provider caching is one lane. CrumbContext is the policy layer that decides 
 <details>
 <summary><strong>Does CrumbContext call OpenAI or Anthropic?</strong></summary>
 
-Not in v0.1. It creates provider-neutral artifacts. Network adapters are planned only where authority boundaries and explicit fallbacks can be preserved.
+Anthropic is supported explicitly through the same-request counterfactual command. The default remains the offline mock, and no network call occurs unless `--provider anthropic` is selected. OpenAI remains on the roadmap.
 
 </details>
 
