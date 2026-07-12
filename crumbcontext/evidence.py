@@ -7,7 +7,12 @@ import sys
 from pathlib import Path
 from typing import Any, Iterable
 
-from .schemas import COUNTERFACTUAL_RESULT_SCHEMA, SchemaError, require_schema
+from .schemas import (
+    COUNTERFACTUAL_RESULT_SCHEMA,
+    ROUTE_PLAN_SCHEMA,
+    SchemaError,
+    require_schema,
+)
 
 
 class EvidenceError(ValueError):
@@ -69,7 +74,12 @@ def validate_provider_report(report: dict[str, Any], expected_provider: str) -> 
             raise EvidenceError(f"comparison is missing numeric {key}")
 
     plan = _mapping(report, "plan")
-    if plan.get("schema_version") is not None:
+    plan_is_legacy = require_schema(
+        plan,
+        ROUTE_PLAN_SCHEMA,
+        allow_legacy_missing=True,
+    )
+    if not plan_is_legacy:
         routing = _mapping(plan, "routing")
         profile = routing.get("profile")
         config = routing.get("config")
