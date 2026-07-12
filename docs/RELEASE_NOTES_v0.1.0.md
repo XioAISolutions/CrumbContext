@@ -53,6 +53,20 @@ crumbcontext counterfactual \
 
 The adapter preserves native system/developer/user/assistant roles, assistant phases when supplied, verified image data URLs, provider usage details, and `store: false`. Raw prompt-cache keys are never written to reports.
 
+## Release integrity
+
+The GitHub release includes:
+
+- the universal Python wheel;
+- the source distribution;
+- `SHA256SUMS.txt` covering every attached release artifact except the checksum file itself;
+- a machine-readable release manifest containing the exact tag, commit, package metadata, dependency declaration, sizes, and SHA-256 digests;
+- an SPDX 2.3 SBOM covering CrumbContext and its declared runtime dependencies.
+
+The wheel and source archive also receive GitHub-hosted SLSA provenance and SPDX SBOM attestations signed through short-lived OIDC credentials. They can be verified with `gh attestation verify` against `XioAISolutions/CrumbContext`.
+
+PyPI publishing uses a Trusted Publisher. No long-lived PyPI password or repository API token is stored in GitHub.
+
 ## Safety boundaries
 
 - Provider calls are explicit and opt-in.
@@ -70,9 +84,11 @@ The release is gated by:
 - offline benchmark and mock counterfactual checks;
 - isolated installation and execution of the built wheel;
 - wheel and source-distribution validation with `twine check`;
+- deterministic checksum, manifest, and SPDX-generation tests;
 - release metadata and documentation consistency checks;
 - CodeQL analysis;
-- tag-to-version verification before trusted PyPI publishing.
+- exact tag-to-version verification;
+- GitHub provenance and SBOM attestation creation before trusted PyPI publishing.
 
 ## Documentation
 
