@@ -1,12 +1,20 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 
 import pytest
 
-from scripts.release_agent import validate_request
-
+ROOT = Path(__file__).resolve().parents[1]
+SPEC = importlib.util.spec_from_file_location(
+    "crumbcontext_release_agent",
+    ROOT / "scripts" / "release_agent.py",
+)
+assert SPEC is not None and SPEC.loader is not None
+MODULE = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(MODULE)
+validate_request = MODULE.validate_request
 
 HEAD = "a" * 40
 
