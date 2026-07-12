@@ -94,7 +94,9 @@ jobs:
       - name: Print validator failure
         run: |
           echo "--- CrumbContext documentation validator ---"
-          tail -n 80 diagnostics/docs-build.log
+          log="$(find diagnostics -name docs-build.log -type f -print -quit)"
+          test -n "$log" || { echo "docs-build.log was not found" >&2; find diagnostics -maxdepth 4 -type f -print; exit 1; }
+          tail -n 80 "$log"
 
   deploy:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
