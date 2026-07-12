@@ -205,9 +205,8 @@ def build_anthropic_payload(
             for line in sidecar.splitlines():
                 match = re.match(r"^- EXACT_\d+ kind=(\S+) value=(.*)$", line)
                 if match:
-                    literal_lines.append(
-                        f"- {match.group(1)}: {match.group(2).replace('\\n', '\n')}"
-                    )
+                    literal_value = match.group(2).replace("\\n", "\n")
+                    literal_lines.append(f"- {match.group(1)}: {literal_value}")
             if literal_lines:
                 content_blocks.append(
                     _text_block(
@@ -358,7 +357,7 @@ class AnthropicProvider:
             latency_ms=latency_ms,
             usage_kind="anthropic_provider_reported",
             raw_usage={
-                "provider_billed": True,
+                "provider_reported": True,
                 "request_id": request_id,
                 "stop_reason": parsed.get("stop_reason"),
                 "stop_sequence": parsed.get("stop_sequence"),
