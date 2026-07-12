@@ -33,6 +33,14 @@ jobs:
             exit 1
           fi
           tail -n 20 /tmp/pytest.log
+      - name: Export pytest failure report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pytest-failure-${{ matrix.python-version }}-${{ github.sha }}
+          path: /tmp/pytest.log
+          if-no-files-found: ignore
+          retention-days: 7
       - run: crumbcontext benchmark --out /tmp/crumbcontext-proof
       - run: test -f /tmp/crumbcontext-proof/report.html
       - run: test -f /tmp/crumbcontext-proof/share-card.svg
