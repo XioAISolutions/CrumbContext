@@ -12,7 +12,6 @@ import sys
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
-from typing import Iterable
 from urllib.parse import unquote, urlsplit
 
 try:
@@ -25,7 +24,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - operator guidance
 
 ROOT = Path(__file__).resolve().parents[1]
 GITHUB_BLOB = "https://github.com/XioAISolutions/CrumbContext/blob/main/"
-DEFAULT_SITE_URL = "https://xioaisolutions.github.io/CrumbContext/"
+DEFAULT_SITE_URL = "https://xioaisolutions.github.io"
 
 
 @dataclass(frozen=True)
@@ -131,10 +130,7 @@ PAGES: tuple[Page, ...] = (
     ),
 )
 
-PAGE_BY_SOURCE = {
-    (ROOT / page.source).resolve(): page
-    for page in PAGES
-}
+PAGE_BY_SOURCE = {(ROOT / page.source).resolve(): page for page in PAGES}
 
 MARKDOWN_LINK = re.compile(r"(?P<prefix>\]\()(?P<target>[^)]+)(?P<suffix>\))")
 HTML_ATTRIBUTE = re.compile(
@@ -273,14 +269,13 @@ def render_markdown(source: Path, base_path: str) -> str:
     rewritten = rewrite_markdown_links(raw, source, base_path)
     return markdown.markdown(
         rewritten,
-        extensions=(
-            "fenced_code",
-            "tables",
-            "toc",
-            "sane_lists",
-            "attr_list",
-        ),
-        extension_configs={"toc": {"permalink": True, "permalink_class": "heading-anchor"}},
+        extensions=("fenced_code", "tables", "toc", "sane_lists", "attr_list"),
+        extension_configs={
+            "toc": {
+                "permalink": True,
+                "permalink_class": "heading-anchor",
+            }
+        },
         output_format="html5",
     )
 
@@ -305,12 +300,7 @@ def navigation(active: Page, base_path: str) -> str:
     return "".join(sections)
 
 
-def page_template(
-    page: Page,
-    body: str,
-    base_path: str,
-    site_url: str,
-) -> str:
+def page_template(page: Page, body: str, base_path: str, site_url: str) -> str:
     canonical = site_url.rstrip("/") + page_url(page, base_path)
     description = html.escape(page.description, quote=True)
     title = html.escape(page.title)
@@ -422,6 +412,7 @@ def _local_target(value: str, base_path: str) -> tuple[str, str] | None:
 
 
 def check_site(output: Path, base_path: str) -> None:
+    output = output.resolve()
     html_files = sorted(output.rglob("*.html"))
     if not html_files:
         raise ValueError("documentation build produced no HTML files")
@@ -432,7 +423,7 @@ def check_site(output: Path, base_path: str) -> None:
         parsed_pages[path.resolve()] = parser
 
     errors: list[str] = []
-    for source, parser in parsed_pages.items():
+    for source, parser in tuple(parsed_pages.items()):
         for attribute, value in parser.targets:
             try:
                 local = _local_target(value, base_path)
@@ -487,6 +478,7 @@ def build_site(
     base_path: str = "/CrumbContext/",
     site_url: str = DEFAULT_SITE_URL,
 ) -> None:
+    output = output.resolve()
     base_path = normalize_base_path(base_path)
     if output.exists():
         shutil.rmtree(output)
@@ -510,10 +502,7 @@ def build_site(
         encoding="utf-8",
     )
     (output / ".nojekyll").write_text("", encoding="utf-8")
-    (output / "robots.txt").write_text(
-        "User-agent: *\nAllow: /\n",
-        encoding="utf-8",
-    )
+    (output / "robots.txt").write_text("User-agent: *\nAllow: /\n", encoding="utf-8")
     sitemap = "\n".join(
         f"  <url><loc>{html.escape(site_url.rstrip('/') + page_url(page, base_path))}</loc></url>"
         for page in PAGES
@@ -545,15 +534,11 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        build_site(
-            args.out,
-            base_path=args.base_path,
-            site_url=args.site_url,
-        )
+        build_site(args.out, base_path=args.base_path, site_url=args.site_url)
     except (OSError, ValueError) as exc:
         print(f"documentation build failed: {exc}", file=sys.stderr)
         return 1
-    print(f"CrumbContext documentation: PASS ({args.out})")
+    print(f"CrumbContext documentation: PASS ({args.out.resolve()})")
     return 0
 
 
