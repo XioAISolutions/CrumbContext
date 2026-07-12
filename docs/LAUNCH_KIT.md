@@ -1,14 +1,8 @@
 # CrumbContext launch kit
 
-This document is the copy-and-paste launch surface for the standalone repository.
+This is the copy-and-paste launch surface for the standalone project. Keep every public claim tied to a reproducible fixture or provider result.
 
 ## Repository identity
-
-**Repository name**
-
-```text
-CrumbContext
-```
 
 **Description**
 
@@ -16,13 +10,21 @@ CrumbContext
 Safety-first context routing for AI agents. Exact facts stay exact while stale context takes a cheaper lane.
 ```
 
-**Website**
+**Core line**
 
-Use the project documentation or landing page once live. Until then, leave blank rather than pointing to an unrelated company page.
+```text
+Give every AI the context it needs—not the entire conversation.
+```
+
+**Hard rule**
+
+```text
+Exact facts never become pixels.
+```
 
 ## GitHub topics
 
-Add these in the repository **About** panel:
+Use the most relevant topics first:
 
 ```text
 ai
@@ -47,21 +49,19 @@ ai-infrastructure
 agentic-ai
 ```
 
-The first eight carry the clearest product meaning. Avoid adding unrelated high-volume topics merely for impressions.
+Do not add unrelated high-volume topics merely for impressions.
 
 ## Social preview
 
-Upload:
+Upload `docs/assets/social-preview.svg`, or a 1280×640 PNG export, through:
 
 ```text
-docs/assets/social-preview.svg
+Settings → General → Social preview → Edit
 ```
-
-In GitHub: **Settings → General → Social preview → Edit**.
 
 ## Hashtags
 
-Use five to eight per post. A wall of tags looks automated.
+Use five to eight per post.
 
 **Core**
 
@@ -75,10 +75,10 @@ Use five to eight per post. A wall of tags looks automated.
 #Python #PromptCaching #AgentMemory #TokenOptimization #AIInfrastructure #LocalAI
 ```
 
-**Tool-community rotation**
+**Provider/tool rotation**
 
 ```text
-#ClaudeCode #OpenAI #Codex #Anthropic #AgenticAI
+#Anthropic #OpenAI #ClaudeCode #Codex #AgenticAI
 ```
 
 ## X / Twitter launch post
@@ -90,17 +90,19 @@ It does not.
 
 System instructions, current requests, hashes, paths, prices and IDs must stay exact. Old logs and stale context can take cheaper lanes.
 
-I built CrumbContext: an open-source, safety-first router that sends context to exact text, cache, CRUMB memory, sanitized images or deterministic summaries.
+CrumbContext is an open-source, safety-first router that sends context to exact text, provider cache, CRUMB memory, sanitized images, or deterministic summaries.
 
-The bundled offline benchmark self-checks:
+The bundled offline proof self-checks:
 • 31/31 exact anchors preserved
 • authority and recent turns stay native text
 • every routing decision is inspectable
 
-No API key needed:
+It also includes same-task counterfactual adapters for Anthropic Messages and OpenAI Responses, with provider usage, latency, hashes, exact recall and task-completion scoring.
+
+No key needed for the offline proof:
 crumbcontext benchmark --out proof --open
 
-[REPOSITORY LINK]
+https://github.com/XioAISolutions/CrumbContext
 
 #CrumbContext #ContextEngineering #AIAgents #LLMOps #OpenSource #Python
 ```
@@ -108,31 +110,30 @@ crumbcontext benchmark --out proof --open
 ## LinkedIn launch post
 
 ```text
-Most AI context systems optimize for one thing: fitting more into the window.
+Most AI context systems optimize for fitting more into the window. That is not enough.
 
-That is not enough.
+A system instruction is not the same kind of context as an old tool log. A SHA, file path, price, URL or citation should not be reconstructed from a lossy summary or image.
 
-A system instruction is not the same kind of context as an old tool log. A SHA, file path, price or citation should not be reconstructed from a lossy summary or image.
+CrumbContext is an open-source safety-first context router for AI agents. It separates context into five explainable lanes:
 
-Today I am releasing CrumbContext, an open-source safety-first context router for AI agents.
-
-It separates context into five explainable lanes:
 1. Exact text for authority, current turns and precision-critical facts
-2. Cache candidates for stable repeated reference material
+2. Provider cache candidates for stable repeated references
 3. CRUMB memory for decisions and handoffs
 4. Sanitized images for old dense logs
 5. Deterministic summaries for stale semantic context
 
-Before any lossy transform, CrumbContext extracts exact anchors into native-text sidecars. The bundled offline benchmark preserves 31/31 exact values and generates a report explaining every routing decision.
+Before any lossy transform, exact anchors are extracted into native-text sidecars. The bundled fixture preserves 31/31 exact values and generates a report explaining every routing decision.
 
-This is an alpha and the token figures are planning estimates—not a fake provider-billing claim. The next milestone is a same-request provider counterfactual harness.
+The project now includes same-request counterfactual adapters for Anthropic Messages and OpenAI Responses. Real provider runs record usage, cache details when returned, latency, request hashes, exact recall, task completion and response similarity.
 
-Repository: [REPOSITORY LINK]
+The 65.8% bundled result is a deterministic planning estimate for one fixture—not a universal billing claim.
+
+Repository: https://github.com/XioAISolutions/CrumbContext
 
 #CrumbContext #ContextEngineering #AIAgents #AIInfrastructure #OpenSource #DeveloperTools
 ```
 
-## Hacker News title and first comment
+## Hacker News
 
 **Title**
 
@@ -143,16 +144,16 @@ Show HN: CrumbContext – Route AI context without turning exact facts into pixe
 **First comment**
 
 ```text
-I built this after noticing that context-compression techniques often treat every message as equivalent. They are not: system authority, a current request, an old log and a project-memory handoff have different failure costs.
+I built this after noticing that context-compression systems often treat every message as equivalent. They are not: system authority, a current request, an old log and a project-memory handoff have different failure costs.
 
-CrumbContext is currently provider-neutral. It extracts paths, hashes, IDs, URLs, dates and amounts into exact-text sidecars, then routes stale context to cache, CRUMB memory, sanitized images or deterministic summaries. The bundled benchmark is offline and intentionally labels its token counts as estimates.
+CrumbContext extracts paths, hashes, IDs, URLs, dates and amounts into exact-text sidecars, then routes stale context to provider cache, CRUMB memory, sanitized images or deterministic summaries.
 
-The part I would most value feedback on is the routing policy and adversarial exact-anchor fixtures. I do not want to rush a transparent proxy until role semantics and safe fallback are proven.
+The repository includes an offline proof plus same-task counterfactual adapters for Anthropic Messages and OpenAI Responses. Provider runs save request hashes, usage, latency and quality checks. The bundled token figure is deliberately labelled as a planning estimate.
+
+The feedback I value most is adversarial fixtures, role-mapping failures and cases where exact-text fallback should trigger earlier.
 ```
 
 ## Reddit framing
-
-Use a technical community and lead with the problem, benchmark methodology, and limitations. Do not paste the same promotional copy into multiple communities.
 
 Suggested title:
 
@@ -160,55 +161,79 @@ Suggested title:
 I open-sourced a context router that keeps exact IDs and instructions out of lossy compression
 ```
 
-## Product Hunt tagline
+Lead with the problem, implementation, benchmark methodology, provider mapping, and limitations. Do not paste identical promotional copy into multiple communities.
+
+## Product Hunt
+
+**Tagline**
 
 ```text
 Route AI context intelligently—without losing exact facts.
 ```
 
-## One-line pitches
+**One-liner**
 
 ```text
 The safety layer between a long AI conversation and the next model call.
 ```
 
-```text
-Context engineering with five lanes and one hard rule: exact facts stay exact.
-```
+## Provider-measured result template
+
+Use this structure only after a real provider run:
 
 ```text
-Stop resending the entire conversation. Route each block based on authority, reuse and precision.
+Provider/model: [EXACT PROVIDER AND MODEL]
+Fixture: [PUBLIC OR HASHED FIXTURE]
+Baseline request SHA-256: [HASH]
+Routed request SHA-256: [HASH]
+Input tokens: [BASELINE] → [ROUTED]
+Cache details: [PROVIDER-REPORTED VALUES]
+Latency: [BASELINE] → [ROUTED]
+Exact recall: [FOUND]/[EXPECTED]
+Task complete: [TRUE/FALSE]
+Response similarity: [VALUE]
+Routing policy: [COMMIT OR PLAN HASH]
 ```
+
+Never publish a percentage without the model, fixture, quality result, and request hashes beside it.
 
 ## First-week launch sequence
 
-1. Publish the repository with CI green and social preview uploaded.
-2. Post the generated benchmark card and a 20–30 second terminal recording.
-3. Open three concrete roadmap issues: provider counterfactual harness, Anthropic adapter, OpenAI adapter.
-4. Ask for adversarial fixtures rather than generic feedback.
-5. Reply publicly with benchmark limitations and fixes; do not defend weak heuristics.
-6. Tag the first release only after the clean installation path is proven on a fresh machine.
-7. Pin the repository on the organization and maintainer profiles.
+1. Publish `v0.1.0` only after PyPI trusted publishing is configured.
+2. Verify clean installation from PyPI using `docs/RELEASE.md`.
+3. Upload the social preview and apply repository topics.
+4. Post the offline benchmark card with the planning-estimate disclaimer.
+5. Record a short terminal demo: benchmark → report → counterfactual.
+6. Run one Anthropic and one OpenAI provider benchmark using the same public fixture.
+7. Publish the raw result JSON or a redacted reproducible bundle.
+8. Ask for adversarial fixtures and role-preservation failures rather than generic praise.
+9. Pin the repository on the organization and maintainer profiles.
 
 ## Repository settings checklist
 
-- Enable Issues and Discussions.
+- Add the repository description above.
+- Add the recommended topics.
+- Upload the social preview.
+- Enable Issues and Discussions as desired.
 - Disable Wikis unless they will be maintained.
-- Require pull requests for `main` after the first public push.
-- Require the CI workflow before merge.
+- Require pull requests and CI/CodeQL for `main`.
 - Enable Dependabot alerts and security updates.
-- Upload `docs/assets/social-preview.svg`.
-- Add the topics listed above.
-- Create a `v0.1.0` release only after CI passes in the standalone repository.
-- Configure the PyPI trusted publisher before publishing the GitHub release.
-- Pin `README`, `ARCHITECTURE`, `LAUNCH_KIT`, and the benchmark issue in Discussions or repository navigation where appropriate.
+- Configure the `pypi` environment and trusted publisher.
+- Publish `v0.1.0` using `docs/RELEASE_NOTES_v0.1.0.md`.
+- Pin the release process and benchmark methodology where contributors can find them.
 
 ## Claims policy
 
-Safe public language:
+Safe offline language:
 
 ```text
 The bundled fixture shows a 65.8% deterministic planning reduction while preserving 31/31 exact anchors.
+```
+
+Safe provider language:
+
+```text
+On provider X, model Y and fixture Z, the routed request used N% fewer provider-reported input tokens while preserving all required exact values and passing the published task checks.
 ```
 
 Do not say:
@@ -217,4 +242,4 @@ Do not say:
 CrumbContext cuts every AI bill by 65.8%.
 ```
 
-Provider-billed savings require a same-request counterfactual with output-quality and exact-recall checks.
+A single provider run is evidence for that exact run—not a universal guarantee.

@@ -4,11 +4,11 @@
 
 <p align="center">
   <a href="https://github.com/XioAISolutions/CrumbContext/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/XioAISolutions/CrumbContext/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/XioAISolutions/CrumbContext/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/XioAISolutions/CrumbContext/actions/workflows/codeql.yml/badge.svg"></a>
   <a href="https://pypi.org/project/crumb-context/"><img alt="PyPI" src="https://img.shields.io/pypi/v/crumb-context?color=8b5cf6"></a>
   <a href="https://github.com/XioAISolutions/CrumbContext/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/XioAISolutions/CrumbContext?include_prereleases&color=22d3ee"></a>
   <a href="https://github.com/XioAISolutions/CrumbContext/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/XioAISolutions/CrumbContext?style=flat&color=f8cf75"></a>
   <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white">
-  <img alt="Offline benchmark" src="https://img.shields.io/badge/benchmark-offline-53f2a3">
   <img alt="MIT" src="https://img.shields.io/badge/license-MIT-a855f7">
 </p>
 
@@ -22,7 +22,7 @@
   ·
   <a href="#-30-second-proof"><strong>Run the proof</strong></a>
   ·
-  <a href="#-route-your-own-context"><strong>Route your context</strong></a>
+  <a href="#-provider-measured-counterfactuals"><strong>Measure a provider</strong></a>
   ·
   <a href="docs/ARCHITECTURE.md"><strong>Architecture</strong></a>
   ·
@@ -33,13 +33,13 @@
 
 ## TL;DR
 
-Long AI sessions usually treat context as one giant blob. That creates three problems:
+Most agent stacks treat context like one giant text blob. That causes three avoidable failures:
 
-1. **Authority gets mixed with history.** Old instructions can compete with the current request.
-2. **Exact facts are fragile.** Paths, hashes, dates, prices, URLs, and IDs can be corrupted by lossy summaries or visual compression.
-3. **Everything is resent at full cost.** Dense logs, reusable references, project memory, and recent conversation all take the same route.
+1. **Authority gets mixed with history.** Old instructions can compete with the current task.
+2. **Exact facts become fragile.** Paths, hashes, dates, prices, URLs, and IDs can be damaged by lossy transforms.
+3. **Everything is resent at full cost.** Stable references, dense logs, old prose, and current instructions all take the same route.
 
-CrumbContext separates those concerns. It classifies every block, protects exact values, assigns one of five lanes, and writes an inspectable bundle for the next model or tool.
+CrumbContext classifies each block, protects exact values before compression, assigns one of five lanes, and emits an inspectable bundle for the next model call.
 
 ```text
 raw context
@@ -57,38 +57,18 @@ classify by recency · reuse · structure · density
     └── summary    old semantic context
 ```
 
-No cloud key is required for the router or bundled benchmark.
+The router, benchmark, and mock counterfactual are offline. Anthropic and OpenAI network calls happen only when explicitly selected.
 
 ## ⚡ 30-second proof
 
 ```bash
 git clone https://github.com/XioAISolutions/CrumbContext.git
 cd CrumbContext
-bash scripts/try.sh
-```
-
-Or install and run directly:
-
-```bash
 python -m pip install -e '.[dev]'
 crumbcontext benchmark --out proof --open
 ```
 
-The benchmark generates an inspectable proof bundle:
-
-```text
-proof/
-├── report.html          # open every routing decision
-├── share-card.svg       # share the reproducible result
-├── benchmark.json       # pass/fail self-check
-├── plan.json            # lane, reason, token estimate per block
-├── anchors-all.txt      # exact-value index
-├── images/              # sanitized historical context
-├── crumbs/              # exact anchors + structured memory
-└── summaries/           # deterministic stale-context summaries
-```
-
-Bundled fixture result:
+The bundled deterministic fixture currently reports:
 
 ```text
 CrumbContext benchmark: PASS
@@ -96,7 +76,21 @@ Estimated tokens: 18,687 -> 6,392 (65.8% planning reduction)
 Exact anchors: 31/31 preserved
 ```
 
-> **Benchmark honesty:** these are deterministic planning estimates, not provider billing records. A measured cost claim requires the same request, model, provider, and output-quality checks before and after routing.
+The proof directory is intentionally inspectable:
+
+```text
+proof/
+├── report.html          # every routing decision and reason
+├── share-card.svg       # reproducible visual result
+├── benchmark.json       # machine-readable pass/fail checks
+├── plan.json            # lane, reason, and token estimate per block
+├── anchors-all.txt      # exact-value index
+├── images/              # sanitized historical context
+├── crumbs/              # structured memory and exact sidecars
+└── summaries/           # deterministic stale-context summaries
+```
+
+> **Claims boundary:** the 65.8% figure is a deterministic planning estimate for the bundled fixture. It is not a universal billing claim. Use the provider counterfactual harness for provider-reported usage.
 
 <p align="center">
   <img src="docs/assets/benchmark-proof.svg" alt="CrumbContext bundled benchmark proof" width="92%" />
@@ -116,13 +110,13 @@ Before any lossy transform, CrumbContext extracts exact values into native-text 
 - currency amounts;
 - environment variables.
 
-The compressed artifact receives a stable label such as:
+A transformed artifact receives a stable label:
 
 ```text
 [EXACT_7:sha_or_hex]
 ```
 
-The matching sidecar preserves the actual value:
+The matching sidecar preserves the literal value:
 
 ```text
 BEGIN CRUMB
@@ -138,19 +132,19 @@ kind=mem
 END CRUMB
 ```
 
-That split is the main difference between **compressing context** and **routing context safely**.
+That is the difference between merely compressing context and routing it safely.
 
 ## 🛣️ Five lanes, one explainable decision
 
-| Lane | What belongs there | Transformation | Safety rule |
+| Lane | Best for | Representation | Safety rule |
 |---|---|---|---|
-| `exact` | system/developer instructions, current turns, policy, approval, citations | none | authority and precision remain native text |
-| `cache` | stable reference material used repeatedly | cache candidate | reuse beats retransmission |
-| `crumb` | project memory, maps, decisions, handoffs | structured CRUMB summary | portable across tools and sessions |
-| `image` | old, large, token-dense logs and tool output | sanitized PNG pages | exact values removed first; history is non-authoritative |
-| `summary` | old semantic context | deterministic extractive summary | preserve decisions and constraints without every word |
+| `exact` | authority, current turns, approvals, citations, precision-critical data | unchanged native text | never lower authority or reconstruct exact values |
+| `cache` | stable references reused across calls | provider cache candidate | reuse without changing meaning |
+| `crumb` | project memory, decisions, handoffs | structured CRUMB text | portable and inspectable; original authority still governs |
+| `image` | old token-dense logs and tool output | sanitized image pages | exact values extracted first; historical evidence only |
+| `summary` | old semantic prose | deterministic extractive summary | preserve decisions and constraints; newer exact text wins |
 
-Every block gets a lane **and a plain-language reason** in `plan.json`.
+Every block receives a lane and a plain-language reason in `plan.json`.
 
 ```mermaid
 flowchart LR
@@ -162,98 +156,145 @@ flowchart LR
     D -->|memory + handoff| G[CRUMB]
     D -->|old + dense| H[Sanitized image]
     D -->|old + semantic| I[Summary]
-    E --> J[Model-ready bundle]
+    E --> J[Provider-ready request]
     F --> J
     G --> J
     H --> J
     I --> J
-    J --> K[Inspect report + benchmark]
+    J --> K[Usage + quality scorecard]
 ```
+
+## 🧪 Same task, two payloads
+
+The counterfactual harness executes an identical task against:
+
+1. the complete baseline context; and
+2. the CrumbContext-routed payload.
+
+```bash
+crumbcontext counterfactual --provider mock --out comparison --open
+```
+
+It writes both request payloads, both responses, hashes, latency, usage, exact-value recall, required-rule recall, JSON validity, task completion, response similarity, the routing plan, an HTML report, and a share card.
+
+```text
+comparison/
+├── counterfactual-input.json
+├── baseline-request.json
+├── routed-request.json
+├── baseline-response.json
+├── routed-response.json
+├── counterfactual.json
+├── counterfactual.html
+├── counterfactual-card.svg
+└── routed-artifacts/
+```
+
+The mock provider proves the measurement machinery without pretending its simulated usage is provider billing.
+
+## 🌐 Provider-measured counterfactuals
+
+| Provider | API surface | Role preservation | Images | Cache accounting | Storage behavior |
+|---|---|---|---|---|---|
+| Offline mock | local deterministic transport | provider-neutral fixture | simulated source only | simulated and labelled | local files only |
+| Anthropic | Messages API | system/developer authority plus user/assistant history | eligible historical context | uncached, cache-read, cache-creation | no CrumbContext credential storage |
+| OpenAI | Responses API | native system/developer/user/assistant roles and assistant phases | verified Base64 data URLs | cached input, cache-write when returned, reasoning/output tokens | `store: false` |
+
+### Anthropic
+
+```bash
+export ANTHROPIC_API_KEY='...'
+crumbcontext counterfactual \
+  --provider anthropic \
+  --model claude-sonnet-4-6 \
+  --out anthropic-proof \
+  --open
+```
+
+The adapter keeps system and developer authority out of ordinary user history, preserves user and assistant order, sends exact anchors as native text, supports explicit cache breakpoints, and limits images to eligible non-authoritative historical user/tool context.
+
+See [`docs/ANTHROPIC.md`](docs/ANTHROPIC.md).
+
+### OpenAI
+
+```bash
+export OPENAI_API_KEY='...'
+crumbcontext counterfactual \
+  --provider openai \
+  --model gpt-5.6 \
+  --prompt-cache-key my-stable-workspace-key \
+  --out openai-proof \
+  --open
+```
+
+The adapter preserves native `system`, `developer`, `user`, and `assistant` roles, retains assistant `commentary` / `final_answer` phases when supplied, sends verified historical image data URLs, sets `store: false`, and records prompt-cache identifiers only as SHA-256 in saved reports.
+
+See [`docs/OPENAI.md`](docs/OPENAI.md).
+
+### Provider controls
+
+```text
+--model MODEL
+--max-tokens N
+--timeout SECONDS
+--no-cache
+--no-images
+--recent-turns N
+--prompt-cache-key KEY      # OpenAI; reports contain only its SHA-256
+--image-detail low|high|auto|original
+```
+
+API keys are read from environment variables and are never written into comparison artifacts.
 
 ## 🎮 Pick your path
 
 <details open>
-<summary><strong>I want the fastest demo</strong></summary>
+<summary><strong>I want the fastest offline demo</strong></summary>
 
 ```bash
 python -m pip install -e '.[dev]'
 crumbcontext benchmark --out proof --open
 ```
 
-No API key is required. Inspect `proof/report.html`, then open `proof/plan.json` to see the exact decision logic.
+No provider key is required.
 
 </details>
 
 <details>
-<summary><strong>I want to compare image and text-only policies</strong></summary>
+<summary><strong>I want text-only routing</strong></summary>
 
 ```bash
-crumbcontext benchmark --out proof-image
 crumbcontext benchmark --no-images --out proof-text
+crumbcontext counterfactual --provider mock --no-images --out comparison-text
 ```
 
-Compare both `benchmark.json` and `plan.json` files. The benchmark self-check verifies that the selected image policy was actually honored.
+The benchmark verifies that the image policy was actually honored.
 
 </details>
 
 <details>
-<summary><strong>I want the plan without creating artifacts</strong></summary>
+<summary><strong>I want only the routing plan</strong></summary>
 
 ```bash
 crumbcontext analyze examples/transcript.json
 ```
 
-This prints the complete machine-readable plan to stdout.
+This prints the complete machine-readable plan without writing transformed artifacts.
 
 </details>
 
 <details>
-<summary><strong>I want to use the Python API</strong></summary>
+<summary><strong>I want to route my own transcript</strong></summary>
 
-```python
-from crumbcontext import ContextBlock, RouterConfig, route_blocks
-
-blocks = [
-    ContextBlock(
-        id="system",
-        role="system",
-        kind="instruction",
-        content="Never deploy without approval.",
-        authoritative=True,
-    ),
-    ContextBlock(
-        id="old-log",
-        role="user",
-        kind="tool_result",
-        content="...large historical output...",
-        age_turns=12,
-    ),
-]
-
-plan = route_blocks(blocks, RouterConfig(vision_allowed=True))
-print(plan.to_dict())
+```bash
+crumbcontext route examples/transcript.json --out routed --open
 ```
 
-</details>
-
-<details>
-<summary><strong>I want to build a provider adapter</strong></summary>
-
-Start with [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). The non-negotiable invariants are:
-
-1. never move system/developer authority into ordinary user content;
-2. extract exact anchors before summaries or images;
-3. label compressed history as non-authoritative;
-4. compare the same request before and after routing;
-5. fall back to exact text when confidence drops.
-
-The Anthropic adapter is the reference implementation; every new adapter must preserve these role and authority boundaries.
+Treat the output directory as sensitive because exact sidecars intentionally preserve literal values.
 
 </details>
 
-## 🧳 Route your own context
-
-Create `transcript.json`:
+## 🧳 Input format
 
 ```json
 {
@@ -291,27 +332,44 @@ Create `transcript.json`:
 }
 ```
 
-Then:
-
-```bash
-crumbcontext analyze transcript.json
-crumbcontext route transcript.json --out routed --open
-```
-
-The input format is intentionally small:
-
 | Field | Required | Meaning |
 |---|---:|---|
-| `id` | recommended | stable identifier used in the routing plan and filenames |
-| `role` | yes | `system`, `developer`, `user`, or another provider role |
+| `id` | recommended | stable identifier used in plans and filenames |
+| `role` | yes | source role such as `system`, `developer`, `user`, `assistant`, or `tool` |
 | `kind` | yes | semantic class such as `message`, `tool_result`, `memory`, `policy`, or `citation` |
 | `content` | yes | original block text |
 | `age_turns` | no | distance from the current turn; defaults to `0` |
-| `reuse_count` | no | how often stable material is expected to be reused |
-| `authoritative` | no | forces native exact-text treatment |
-| `metadata` | no | caller-defined information preserved on the block |
+| `reuse_count` | no | expected reuse count for cache decisions |
+| `authoritative` | no | forces authority-preserving exact treatment |
+| `metadata` | no | caller-defined metadata retained on the block |
 
-## 📦 Install and commands
+## 🐍 Python API
+
+```python
+from crumbcontext import ContextBlock, RouterConfig, route_blocks
+
+blocks = [
+    ContextBlock(
+        id="system",
+        role="system",
+        kind="instruction",
+        content="Never deploy without approval.",
+        authoritative=True,
+    ),
+    ContextBlock(
+        id="old-log",
+        role="user",
+        kind="tool_result",
+        content="...large historical output...",
+        age_turns=12,
+    ),
+]
+
+plan = route_blocks(blocks, RouterConfig(vision_allowed=True))
+print(plan.to_dict())
+```
+
+## 📦 Installation and commands
 
 From source:
 
@@ -319,140 +377,111 @@ From source:
 python -m pip install -e .
 ```
 
-After the first package release:
+After the PyPI release:
 
 ```bash
 pip install crumb-context
 ```
-
-CLI:
 
 ```text
 crumbcontext analyze INPUT
 crumbcontext route INPUT --out routed [--open] [--no-images]
 crumbcontext demo --out demo [--open] [--no-images]
 crumbcontext benchmark --out proof [--open] [--no-images]
-crumbcontext counterfactual [INPUT] --provider mock|anthropic --out comparison [--open]
+crumbcontext counterfactual [INPUT] --provider mock|anthropic|openai --out comparison [--open]
 ```
 
-Useful configuration knobs in `RouterConfig`:
+Important `RouterConfig` settings:
 
 | Setting | Default | Purpose |
 |---|---:|---|
-| `recent_turns` | `2` | number of current/recent turns kept exact |
+| `recent_turns` | `2` | current/recent turns that remain exact |
 | `minimum_compress_chars` | `1800` | avoids transforming tiny blocks |
 | `image_min_chars` | `6000` | minimum old dense block eligible for image routing |
 | `cache_reuse_threshold` | `3` | expected reuse required for the cache lane |
-| `vision_allowed` | `True` | disables image routing when false |
-| `summary_ratio` | `0.22` | planning estimate for summary size |
-| `crumb_ratio` | `0.30` | planning estimate for structured CRUMB size |
+| `vision_allowed` | `True` | globally permits or disables image routing |
+| `summary_ratio` | `0.22` | deterministic planning estimate for summaries |
+| `crumb_ratio` | `0.30` | deterministic planning estimate for CRUMB memory |
 
+## ✅ What the evidence proves
 
-## 🟠 Measure with Anthropic
+The offline benchmark checks:
 
-The provider-neutral counterfactual harness now includes a safety-preserving Anthropic Messages adapter:
-
-```bash
-export ANTHROPIC_API_KEY='...'
-crumbcontext counterfactual \
-  --provider anthropic \
-  --model claude-sonnet-4-6 \
-  --out anthropic-proof \
-  --open
-```
-
-It preserves system/developer authority, keeps user and assistant roles intact, sends exact values as native text, supports explicit prompt-cache breakpoints, and uses images only for eligible non-authoritative historical user/tool context. Provider-reported usage includes uncached input, cache reads, cache creation, output tokens, latency, and the Anthropic request ID.
-
-See [`docs/ANTHROPIC.md`](docs/ANTHROPIC.md) for the mapping and threat model. The API key is read only from `ANTHROPIC_API_KEY` and is never stored.
-
-## 🔬 What the benchmark actually proves
-
-The bundled benchmark is offline and deterministic. It checks that:
-
-- every expected exact anchor appears in a native-text sidecar;
-- authoritative blocks remain in the `exact` lane;
-- recent turns remain in the `exact` lane;
+- every expected exact anchor appears in native text;
+- authoritative blocks remain exact;
+- recent turns remain exact;
 - image-enabled and text-only policies are honored;
-- `plan.json` exists;
-- the interactive report exists;
-- routed-token estimates are lower than the uncompressed estimate for the fixture.
+- plan and report artifacts exist;
+- the routed planning estimate is lower for the bundled fixture.
 
-It does **not** prove:
+The counterfactual harness additionally records:
 
-- provider-billed cost savings;
-- equal answer quality across models;
-- perfect visual recall;
-- production readiness for autonomous agents;
-- protection against every possible secret or identifier format.
+- identical task hashes;
+- baseline and routed request hashes;
+- provider-reported usage when a real adapter is selected;
+- exact-value and required-rule recall;
+- JSON validity and task completion;
+- response similarity and latency.
 
-The same-request counterfactual harness now records usage, latency, exact-value recall, task completion, response similarity, and request/response hashes. The next research milestone is broader reproducible provider coverage across models and fixtures.
+It does **not** prove universal savings, equal quality across every model, perfect visual recall, or readiness for unsupervised production agents. Publish the provider, model, fixture, request hashes, routing policy, and quality results with every measured claim.
 
 ## 🔐 Privacy and security
 
-CrumbContext is local-first, but its outputs can contain sensitive information.
+CrumbContext is local-first, but its inputs and outputs can be sensitive.
 
-- Routing, demo, and benchmark commands remain offline. The counterfactual command calls a provider only when an explicit network provider such as `anthropic` is selected.
-- Exact-anchor sidecars intentionally contain the extracted exact values.
+- `analyze`, `route`, `demo`, `benchmark`, and the mock counterfactual do not require a cloud key.
+- Anthropic and OpenAI calls are explicit and opt-in through `--provider`.
+- Exact-anchor sidecars intentionally contain extracted literal values.
 - Generated images contain sanitized historical context.
-- Output directories should be treated as sensitive project artifacts.
+- Output directories must be protected like source transcripts.
+- OpenAI requests use `store: false`.
+- Raw API keys are never written to reports.
+- OpenAI prompt-cache keys are represented in reports only by SHA-256.
 - Public issues must use synthetic or redacted fixtures.
-- Provider adapters must make network behavior explicit and opt-in.
 
-Read [`SECURITY.md`](SECURITY.md) before using real production transcripts.
+Read [`SECURITY.md`](SECURITY.md) before using production transcripts.
 
 ## 🚧 Alpha status and non-goals
 
-CrumbContext v0.1 is a provider-neutral router, artifact generator, benchmark, and report surface.
+CrumbContext v0.1 is a router, artifact generator, benchmark, provider counterfactual surface, and reference implementation for safe adapter mapping.
 
-It is not yet:
+It is not:
 
-- a transparent OpenAI or Anthropic proxy;
+- a transparent proxy for every provider;
 - an automatic replacement for provider-native caching;
 - a secret scanner or DLP product;
 - a semantic vector database;
-- a guarantee that an image contains enough visual detail for every model;
-- permission to move system authority into lower-priority message roles.
+- a guarantee that images retain sufficient detail for every vision model;
+- permission to move system authority into lower-priority roles;
+- a universal cost-saving claim.
 
 When uncertain, the intended fallback is boring and safe: **keep the block as exact text**.
-
-## 🧪 Try to break it
-
-A useful adversarial fixture is worth more than a vague feature request. Test:
-
-- hashes that resemble ordinary words;
-- URLs containing long numeric IDs;
-- repeated exact values across huge logs;
-- stale instructions that conflict with the current request;
-- sparse prose that should not become an image;
-- dense JSON that should;
-- exact values adjacent to Markdown, XML, and punctuation;
-- Windows paths, Unicode filenames, and unusual currencies.
-
-Found a miss? Open an issue with the smallest synthetic reproduction.
 
 ## 🗺️ Roadmap
 
 - [x] safety-first five-lane router
 - [x] exact-anchor CRUMB sidecars
-- [x] sanitized PNG context pages
+- [x] sanitized historical-context pages
 - [x] deterministic summaries
-- [x] interactive HTML report
+- [x] interactive HTML reports and share cards
 - [x] self-verifying offline benchmark
-- [x] shareable proof card
 - [x] same-request provider counterfactual harness
 - [x] Anthropic Messages adapter
-- [ ] OpenAI Responses adapter
+- [x] OpenAI Responses adapter
+- [x] provider usage, latency, hashes, and exact-recall scorecards
+- [ ] publish the first reproducible provider-measured benchmark set
 - [ ] local OCR/VLM render verification
 - [ ] provider/model regression profiles and kill switches
-- [ ] signed benchmark fixtures and reproducible release artifacts
+- [ ] signed benchmark fixtures and reproducible release attestations
+- [ ] production proxy only after role semantics and failure policy are proven
 
 ## 🥖 CRUMB ecosystem
 
 | Project | Role |
 |---|---|
-| [`crumb-format`](https://github.com/XioAISolutions/crumb-format) | portable context format, parser, validator, linter |
+| [`crumb-format`](https://github.com/XioAISolutions/crumb-format) | portable context format, parser, validator, and linter |
 | [`Crumb-Bob`](https://github.com/XioAISolutions/Crumb-Bob) | session capture and CRUMB generation |
-| **CrumbContext** | route context and protect exact facts |
+| **CrumbContext** | route context, protect authority, and measure provider requests |
 | [`CrumbLLM`](https://github.com/XioAISolutions/CrumbLLM) | reason over CRUMB files and packs |
 
 CrumbContext bundles the small amount of CRUMB writing it needs, so the package remains independently installable.
@@ -464,17 +493,11 @@ git clone https://github.com/XioAISolutions/CrumbContext.git
 cd CrumbContext
 python -m pip install -e '.[dev]'
 pytest
+python scripts/release-check.py
 crumbcontext benchmark --out proof
 ```
 
-High-value contributions:
-
-- exact-anchor patterns with adversarial tests;
-- provider-specific counterfactual fixtures;
-- routing heuristics backed by measurable evidence;
-- provider adapters that preserve role authority;
-- render-verification and exact-text fallbacks;
-- accessibility and benchmark-report improvements.
+High-value contributions include adversarial exact-anchor fixtures, provider-specific counterfactual fixtures, evidence-backed routing heuristics, render verification, accessibility improvements, and adapter mappings that preserve authority.
 
 Read [`CONTRIBUTING.md`](CONTRIBUTING.md), [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), and the [open issues](https://github.com/XioAISolutions/CrumbContext/issues).
 
@@ -483,28 +506,28 @@ Read [`CONTRIBUTING.md`](CONTRIBUTING.md), [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUC
 <details>
 <summary><strong>Why not summarize everything?</strong></summary>
 
-Because summary is lossy and not all context has the same authority or precision requirements. Current instructions, citations, paths, hashes, prices, and IDs should not be reconstructed from a paraphrase.
+Summary is lossy, and context does not have uniform authority or precision requirements. Current instructions, approvals, citations, paths, hashes, prices, and IDs should not be reconstructed from a paraphrase.
 
 </details>
 
 <details>
 <summary><strong>Why use images at all?</strong></summary>
 
-Old dense tool output can be visually compact for models with vision support. CrumbContext only considers this lane after exact values are extracted, and it labels the image as non-authoritative history. Image routing can be disabled globally.
+Old dense tool output can be compact for vision-capable models. CrumbContext only considers this lane after exact values are extracted and labels the image as non-authoritative history. Disable it with `--no-images`.
 
 </details>
 
 <details>
 <summary><strong>Does this replace provider prompt caching?</strong></summary>
 
-No. Provider caching is one lane. CrumbContext is the policy layer that decides which stable material is a cache candidate and which content should take a different route.
+No. Caching is one lane. CrumbContext is the policy layer deciding what is safe and useful to cache versus summarize, structure, image-route, or keep exact.
 
 </details>
 
 <details>
-<summary><strong>Does CrumbContext call OpenAI or Anthropic?</strong></summary>
+<summary><strong>Does CrumbContext call OpenAI or Anthropic automatically?</strong></summary>
 
-Anthropic is supported explicitly through the same-request counterfactual command. The default remains the offline mock, and no network call occurs unless `--provider anthropic` is selected. OpenAI remains on the roadmap.
+No. The default counterfactual provider is offline `mock`. Network calls occur only when `--provider anthropic` or `--provider openai` is explicitly selected and the corresponding environment key is present.
 
 </details>
 
@@ -517,10 +540,8 @@ Yes. Use `--no-images` or `RouterConfig(vision_allowed=False)`.
 
 ## 📣 Share and cite
 
-The full social-launch copy, GitHub topics, hashtags, and repository-setting checklist live in [`docs/LAUNCH_KIT.md`](docs/LAUNCH_KIT.md).
+Launch copy, recommended GitHub topics, hashtags, claims language, and repository settings live in [`docs/LAUNCH_KIT.md`](docs/LAUNCH_KIT.md).
 
-For research or technical writing, see [`CITATION.cff`](CITATION.cff).
+For research and technical citations, use [`CITATION.cff`](CITATION.cff).
 
-## License
-
-MIT © XIO AI Solutions
+**Core line:** *Exact facts never become pixels.*
