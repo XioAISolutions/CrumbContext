@@ -99,8 +99,15 @@ def routed_request(
     spec: CounterfactualSpec,
     output_dir: Path,
     config: RouterConfig,
+    *,
+    profile_name: str = "custom",
 ) -> tuple[ProviderRequest, RoutePlan]:
-    plan = route_to_directory(list(spec.blocks), output_dir, config)
+    plan = route_to_directory(
+        list(spec.blocks),
+        output_dir,
+        config,
+        profile_name=profile_name,
+    )
     by_id = {item.block_id: item for item in plan.blocks}
     routed_blocks: list[dict[str, Any]] = []
 
@@ -144,6 +151,8 @@ def routed_request(
         metadata={
             "name": spec.name,
             "compression": "crumbcontext",
+            "routing_profile": plan.profile_name,
+            "routing_schema": plan.schema_version,
             "provider_billed": False,
             "mock_vision_source_present": any(
                 "mock_vision_source" in item for item in routed_blocks
