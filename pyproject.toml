@@ -10,31 +10,60 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "XIO AI Solutions" }]
+maintainers = [{ name = "XIO AI Solutions" }]
 keywords = [
-  "ai", "llm", "ai-agents", "context-engineering", "context-window",
-  "prompt-caching", "agent-memory", "llmops", "token-optimization",
-  "developer-tools", "local-ai"
+  "ai",
+  "llm",
+  "ai-agents",
+  "agentic-ai",
+  "context-engineering",
+  "context-routing",
+  "context-window",
+  "prompt-caching",
+  "prompt-engineering",
+  "agent-memory",
+  "llmops",
+  "token-optimization",
+  "ai-infrastructure",
+  "developer-tools",
+  "local-ai",
+  "anthropic",
+  "openai",
+  "claude",
+  "codex",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
+  "Environment :: Console",
   "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
-  "Topic :: Software Development :: Libraries",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
 ]
 dependencies = ["Pillow>=10.0"]
 
 [project.optional-dependencies]
-dev = ["build>=1.2", "pytest>=8.0", "twine>=5.0"]
+dev = [
+  "build>=1.2",
+  "pytest>=8.0",
+  "tomli>=2.0; python_version < '3.11'",
+  "twine>=5.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/XioAISolutions/CrumbContext"
-Repository = "https://github.com/XioAISolutions/CrumbContext"
+Documentation = "https://github.com/XioAISolutions/CrumbContext/tree/main/docs"
+Source = "https://github.com/XioAISolutions/CrumbContext"
 Issues = "https://github.com/XioAISolutions/CrumbContext/issues"
 Changelog = "https://github.com/XioAISolutions/CrumbContext/blob/main/CHANGELOG.md"
+Security = "https://github.com/XioAISolutions/CrumbContext/blob/main/SECURITY.md"
+Releases = "https://github.com/XioAISolutions/CrumbContext/releases"
 
 [project.scripts]
 crumbcontext = "crumbcontext.cli:main"

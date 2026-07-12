@@ -21,3 +21,5 @@ No unreleased changes.
 - Added mocked HTTP coverage for provider success, errors, caching, images, privacy redaction, and complete baseline-versus-routed executions without paid CI calls or repository secrets.
 - Added Python 3.10, 3.11, and 3.12 CI, distribution validation, CodeQL, Dependabot, Codespaces, issue forms, contribution guidance, security policy, citation metadata, and trusted-publishing workflow scaffolding.
 - Added a machine-checkable release contract, isolated wheel smoke test, tag-to-version verification, release process, and v0.1.0 release notes.
+- Added one-tag GitHub and PyPI release automation with SHA-256 checksums, a release manifest, SPDX 2.3 SBOM, GitHub provenance/SBOM attestations, verified release assets, and OIDC Trusted Publishing without a long-lived PyPI token.
+- Expanded PyPI search metadata, typed-package classifiers, project links, and Python 3.10-compatible release tooling.

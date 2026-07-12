@@ -1,54 +1,139 @@
-name: Publish to PyPI
+name: Publish release
 
 on:
-  release:
-    types: [published]
-
-permissions:
-  contents: read
-  id-token: write
+  push:
+    tags:
+      - "v*.*.*"
 
 concurrency:
-  group: publish-${{ github.event.release.tag_name }}
+  group: publish-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   build:
     if: github.repository == 'XioAISolutions/CrumbContext'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: python -m pip install --upgrade build twine
+      - name: Install release tooling
+        run: python -m pip install --upgrade build twine
       - name: Verify tag, package version, docs, and release metadata
-        run: python scripts/release-check.py --tag "${{ github.event.release.tag_name }}"
-      - name: Build distributions from the release tag
-        run: python -m build
+        run: python scripts/release-check.py --tag "${{ github.ref_name }}"
+      - name: Read package metadata
+        id: package
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import tomllib
+          from pathlib import Path
+          project = tomllib.loads(Path('pyproject.toml').read_text(encoding='utf-8'))['project']
+          print(f"name={project['name']}")
+          print(f"version={project['version']}")
+          PY
+      - name: Build wheel and source distribution from the tag
+        run: python -m build --outdir python-dist
       - name: Validate wheel and source distribution
-        run: python -m twine check dist/*
-      - uses: actions/upload-artifact@v7
+        run: python -m twine check python-dist/*
+      - name: Smoke-test the installed wheel outside the source tree
+        run: |
+          python -m venv /tmp/crumbcontext-release-venv
+          /tmp/crumbcontext-release-venv/bin/python -m pip install --upgrade pip
+          /tmp/crumbcontext-release-venv/bin/python -m pip install python-dist/*.whl
+          cd /tmp
+          /tmp/crumbcontext-release-venv/bin/crumbcontext --version
+          /tmp/crumbcontext-release-venv/bin/crumbcontext benchmark --out /tmp/crumbcontext-installed-proof
+          /tmp/crumbcontext-release-venv/bin/crumbcontext counterfactual --provider mock --out /tmp/crumbcontext-installed-counterfactual
+          python -c "import json; assert json.load(open('/tmp/crumbcontext-installed-proof/benchmark.json'))['passed']"
+          python -c "import json; assert json.load(open('/tmp/crumbcontext-installed-counterfactual/counterfactual.json'))['passed']"
+      - name: Build checksums, manifest, and SPDX SBOM
+        run: |
+          CREATED="$(git show -s --format=%cI HEAD)"
+          COMMIT="$(git rev-parse HEAD)"
+          python scripts/release_assets.py \
+            --input python-dist \
+            --output release-dist \
+            --tag "${{ github.ref_name }}" \
+            --commit "$COMMIT" \
+            --created "$CREATED"
+      - name: Attest provenance for every GitHub release asset
+        uses: actions/attest@v4
         with:
-          name: python-package-${{ github.event.release.tag_name }}
-          path: dist/
+          subject-path: release-dist/*
+      - name: Attest the SPDX SBOM against the Python distributions
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            release-dist/*.whl
+            release-dist/*.tar.gz
+          sbom-path: release-dist/${{ steps.package.outputs.name }}-${{ steps.package.outputs.version }}.spdx.json
+      - name: Upload Python distributions for trusted publishing
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-package-${{ github.ref_name }}
+          path: python-dist/
           if-no-files-found: error
+          retention-days: 14
+      - name: Upload complete GitHub release assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-assets-${{ github.ref_name }}
+          path: release-dist/
+          if-no-files-found: error
+          retention-days: 90
 
-  publish:
+  release:
     needs: build
     if: github.repository == 'XioAISolutions/CrumbContext'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-assets-${{ github.ref_name }}
+          path: release-dist/
+      - name: Create or update the GitHub release and attach verified assets
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: CrumbContext ${{ github.ref_name }}
+          body_path: docs/RELEASE_NOTES_${{ github.ref_name }}.md
+          files: release-dist/*
+          fail_on_unmatched_files: true
+          preserve_order: true
+          draft: false
+          prerelease: false
+
+  publish:
+    needs: [build, release]
+    if: github.repository == 'XioAISolutions/CrumbContext'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     environment:
       name: pypi
       url: https://pypi.org/p/crumb-context
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: python-package-${{ github.event.release.tag_name }}
-          path: dist/
-      - uses: pypa/gh-action-pypi-publish@release/v1
+          name: python-package-${{ github.ref_name }}
+          path: python-dist/
+      - name: Publish the wheel and source distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: dist/
+          packages-dir: python-dist/
           print-hash: true
