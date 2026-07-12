@@ -19,7 +19,7 @@ jobs:
     permissions:
       actions: write
       checks: read
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v7
         with:
@@ -83,23 +83,10 @@ jobs:
           done
           echo "Timed out waiting for CodeQL on $HEAD_SHA" >&2
           exit 1
-      - name: Create the verified annotated release tag
-        if: steps.request.outputs.requested == 'true'
-        env:
-          TAG: ${{ steps.request.outputs.tag }}
-          COMMIT: ${{ steps.request.outputs.commit }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists; keeping the existing immutable release point."
-          else
-            git tag -a "$TAG" "$COMMIT" -m "CrumbContext $TAG"
-            git push origin "refs/tags/$TAG"
-          fi
       - name: Dispatch the attested GitHub and PyPI publish workflow
         if: steps.request.outputs.requested == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.request.outputs.tag }}
-        run: gh workflow run publish.yml --ref main -f tag="$TAG"
+          COMMIT: ${{ steps.request.outputs.commit }}
+        run: gh workflow run publish.yml --ref main -f tag="$TAG" -f commit="$COMMIT"
