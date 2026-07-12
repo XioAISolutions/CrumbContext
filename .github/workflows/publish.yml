@@ -4,9 +4,23 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Exact release tag, for example v0.1.0
+        required: true
+        type: string
+      commit:
+        description: Full CI-tested commit SHA to release
+        required: true
+        type: string
+
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+  RELEASE_COMMIT: ${{ inputs.commit || github.sha }}
 
 concurrency:
-  group: publish-${{ github.ref_name }}
+  group: publish-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -21,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ env.RELEASE_COMMIT }}
           fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
@@ -29,7 +43,9 @@ jobs:
       - name: Install release tooling
         run: python -m pip install --upgrade build twine
       - name: Verify tag, package version, docs, and release metadata
-        run: python scripts/release-check.py --tag "${{ github.ref_name }}"
+        run: python scripts/release-check.py --tag "$RELEASE_TAG"
+      - name: Verify the checked-out release commit
+        run: test "$(git rev-parse HEAD)" = "$RELEASE_COMMIT"
       - name: Read package metadata
         id: package
         run: |
@@ -40,7 +56,7 @@ jobs:
           print(f"name={project['name']}")
           print(f"version={project['version']}")
           PY
-      - name: Build wheel and source distribution from the tag
+      - name: Build wheel and source distribution from the verified commit
         run: python -m build --outdir python-dist
       - name: Validate wheel and source distribution
         run: python -m twine check python-dist/*
@@ -58,12 +74,11 @@ jobs:
       - name: Build checksums, manifest, and SPDX SBOM
         run: |
           CREATED="$(git show -s --format=%cI HEAD)"
-          COMMIT="$(git rev-parse HEAD)"
           python scripts/release_assets.py \
             --input python-dist \
             --output release-dist \
-            --tag "${{ github.ref_name }}" \
-            --commit "$COMMIT" \
+            --tag "$RELEASE_TAG" \
+            --commit "$RELEASE_COMMIT" \
             --created "$CREATED"
       - name: Attest provenance for every GitHub release asset
         uses: actions/attest@v4
@@ -79,14 +94,14 @@ jobs:
       - name: Upload Python distributions for trusted publishing
         uses: actions/upload-artifact@v7
         with:
-          name: python-package-${{ github.ref_name }}
+          name: python-package-${{ env.RELEASE_TAG }}
           path: python-dist/
           if-no-files-found: error
           retention-days: 14
       - name: Upload complete GitHub release assets
         uses: actions/upload-artifact@v7
         with:
-          name: release-assets-${{ github.ref_name }}
+          name: release-assets-${{ env.RELEASE_TAG }}
           path: release-dist/
           if-no-files-found: error
           retention-days: 90
@@ -100,17 +115,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ env.RELEASE_COMMIT }}
       - uses: actions/download-artifact@v8
         with:
-          name: release-assets-${{ github.ref_name }}
+          name: release-assets-${{ env.RELEASE_TAG }}
           path: release-dist/
       - name: Create or update the GitHub release and attach verified assets
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ github.ref_name }}
-          name: CrumbContext ${{ github.ref_name }}
-          body_path: docs/RELEASE_NOTES_${{ github.ref_name }}.md
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ env.RELEASE_COMMIT }}
+          name: CrumbContext ${{ env.RELEASE_TAG }}
+          body_path: docs/RELEASE_NOTES_${{ env.RELEASE_TAG }}.md
           files: release-dist/*
           fail_on_unmatched_files: true
           preserve_order: true
@@ -130,7 +146,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: python-package-${{ github.ref_name }}
+          name: python-package-${{ env.RELEASE_TAG }}
           path: python-dist/
       - name: Publish the wheel and source distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
