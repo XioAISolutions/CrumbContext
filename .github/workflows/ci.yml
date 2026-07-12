@@ -91,3 +91,11 @@ jobs:
           sha256sum --check SHA256SUMS.txt
           python -c "import json, os; data=json.load(open(f'crumb-context-{os.environ[\"EXPECTED_VERSION\"]}-release-manifest.json')); assert data['version'] == os.environ['EXPECTED_VERSION']; assert len(data['artifacts']) == 2"
           python -c "import json, os; data=json.load(open(f'crumb-context-{os.environ[\"EXPECTED_VERSION\"]}.spdx.json')); assert data['spdxVersion'] == 'SPDX-2.3'; assert data['packages'][0]['versionInfo'] == os.environ['EXPECTED_VERSION']"
+      - name: Export verified release candidate
+        uses: actions/upload-artifact@v7
+        with:
+          name: crumb-context-${{ steps.package.outputs.version }}-release-candidate-${{ github.sha }}
+          path: release-dist/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
