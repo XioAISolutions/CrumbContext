@@ -1,0 +1,89 @@
+name: Python API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - crumbcontext/**
+      - examples/python/**
+      - docs/PYTHON_API.md
+      - tests/test_public_api.py
+      - .github/workflows/python-api.yml
+  pull_request:
+    paths:
+      - crumbcontext/**
+      - examples/python/**
+      - docs/PYTHON_API.md
+      - tests/test_public_api.py
+      - .github/workflows/python-api.yml
+
+permissions:
+  contents: read
+
+jobs:
+  installed-api:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Build and install the wheel
+        run: |
+          python -m pip install --upgrade build
+          python -m build --wheel --outdir /tmp/crumbcontext-wheel
+          python -m pip install /tmp/crumbcontext-wheel/*.whl
+      - name: Verify supported top-level imports outside the source tree
+        run: |
+          cd /tmp
+          python - <<'PY'
+          import crumbcontext
+
+          required = {
+              "BlockInput",
+              "EvaluationSpec",
+              "ProviderRequest",
+              "ProviderResponse",
+              "RoutedRequestBundle",
+              "build_anthropic_payload",
+              "build_baseline_request",
+              "build_openai_payload",
+              "build_routed_request",
+              "create_spec",
+              "execute_provider",
+              "normalize_blocks",
+          }
+          assert required <= set(crumbcontext.__all__)
+          for name in crumbcontext.__all__:
+              assert hasattr(crumbcontext, name)
+          PY
+      - name: Run offline integration examples against the installed wheel
+        env:
+          WORKSPACE: ${{ github.workspace }}
+        run: |
+          cd /tmp
+          python "$WORKSPACE/examples/python/route_and_inspect.py" --out /tmp/api-route > /tmp/api-route.json
+          python "$WORKSPACE/examples/python/run_mock_provider.py" > /tmp/mock-response.json
+          python "$WORKSPACE/examples/python/build_anthropic_payload.py" --out /tmp/api-anthropic > /tmp/anthropic-payload.json
+          python "$WORKSPACE/examples/python/build_openai_payload.py" --out /tmp/api-openai > /tmp/openai-payload.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          mock = json.loads(Path('/tmp/mock-response.json').read_text())
+          anthropic = json.loads(Path('/tmp/anthropic-payload.json').read_text())
+          openai = json.loads(Path('/tmp/openai-payload.json').read_text())
+          assert mock['provider'] == 'mock'
+          assert anthropic['system'] and anthropic['messages']
+          assert openai['store'] is False and openai['input']
+          assert Path('/tmp/api-route/plan.json').is_file()
+          PY
+      - name: Run source-level public API tests
+        run: |
+          python -m pip install pytest
+          cd "$GITHUB_WORKSPACE"
+          pytest tests/test_public_api.py
