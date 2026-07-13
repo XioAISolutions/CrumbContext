@@ -1,0 +1,49 @@
+name: Repair documentation branch
+
+on:
+  push:
+    branches:
+      - docs/github-pages-site
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: docs/github-pages-site
+          fetch-depth: 0
+      - name: Repair generated-site anchor links
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("README.md")
+          text = path.read_text(encoding="utf-8")
+          updated = (
+              text.replace("#-30-second-proof", "#30-second-proof")
+              .replace(
+                  "#-provider-measured-counterfactuals",
+                  "#provider-measured-counterfactuals",
+              )
+          )
+          if updated != text:
+              path.write_text(updated, encoding="utf-8")
+          PY
+      - name: Commit branch repair when needed
+        run: |
+          if git diff --quiet -- README.md; then
+            echo "README anchors already repaired"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "Fix documentation anchor links"
+          git push origin HEAD:docs/github-pages-site
+      - name: Verify release contract
+        run: python scripts/release-check.py
