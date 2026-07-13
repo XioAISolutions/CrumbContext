@@ -226,7 +226,7 @@ The mock provider proves the measurement machinery without pretending its simula
 export ANTHROPIC_API_KEY='...'
 crumbcontext counterfactual \
   --provider anthropic \
-  --model claude-sonnet-4-6 \
+  --model claude-fable-5 \
   --out anthropic-proof \
   --open
 ```
@@ -258,6 +258,8 @@ See [`docs/OPENAI.md`](docs/OPENAI.md).
 --max-tokens N
 --timeout SECONDS
 --no-cache
+--cache-ttl 5m|1h          # Anthropic
+--no-fallback               # Anthropic Fable 5
 --no-images
 --recent-turns N
 --prompt-cache-key KEY      # OpenAI; reports contain only its SHA-256

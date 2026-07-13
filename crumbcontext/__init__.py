@@ -22,6 +22,8 @@ from .profiles import (
 )
 from .providers import (
     AnthropicProvider,
+    AnthropicRefusalError,
+    DEFAULT_ANTHROPIC_MODEL,
     MockProvider,
     OpenAIProvider,
     Provider,
@@ -46,6 +48,8 @@ from .schemas import (
 __all__ = [
     "Anchor",
     "AnthropicProvider",
+    "AnthropicRefusalError",
+    "DEFAULT_ANTHROPIC_MODEL",
     "BlockInput",
     "COUNTERFACTUAL_RESULT_SCHEMA",
     "COUNTERFACTUAL_SPEC_SCHEMA",

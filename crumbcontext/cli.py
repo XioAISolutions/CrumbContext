@@ -178,6 +178,13 @@ def _provider_options(args) -> dict:
         "enable_cache": not args.no_cache,
         "api_url": args.api_url,
     }
+    if provider == "anthropic":
+        common.update(
+            {
+                "cache_ttl": args.cache_ttl,
+                "enable_fallback": not args.no_fallback,
+            }
+        )
     if provider == "openai":
         common.update(
             {
@@ -329,13 +336,24 @@ def build_parser() -> argparse.ArgumentParser:
             "the adapter's documented default"
         ),
     )
-    counterfactual.add_argument("--max-tokens", type=int, default=1024)
+    counterfactual.add_argument("--max-tokens", type=int, default=4096)
     counterfactual.add_argument("--timeout", type=float, default=120.0)
     counterfactual.add_argument("--api-url", help=argparse.SUPPRESS)
     counterfactual.add_argument(
         "--no-cache",
         action="store_true",
         help="Disable CrumbContext provider cache hints and breakpoints",
+    )
+    counterfactual.add_argument(
+        "--cache-ttl",
+        choices=("5m", "1h"),
+        default="5m",
+        help="Anthropic cache breakpoint TTL",
+    )
+    counterfactual.add_argument(
+        "--no-fallback",
+        action="store_true",
+        help="Disable Anthropic Fable 5 server-side refusal fallback",
     )
     counterfactual.add_argument(
         "--prompt-cache-key",

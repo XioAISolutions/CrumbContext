@@ -49,6 +49,19 @@ _PROFILES: dict[str, ResolvedProfile] = {
             vision_allowed=False,
         ),
     ),
+    "frontier-vision": ResolvedProfile(
+        name="frontier-vision",
+        description=(
+            "Use the high-resolution 2576 px image tier available on Claude Fable 5, "
+            "Claude Mythos 5, Claude Opus 4.7+, and Claude Sonnet 5 while preserving "
+            "the normal authority and exact-value boundaries."
+        ),
+        config=RouterConfig(
+            image_width=2576,
+            image_height=1196,
+            image_page_chars=24000,
+        ),
+    ),
     "strict-exact": ResolvedProfile(
         name="strict-exact",
         description=(

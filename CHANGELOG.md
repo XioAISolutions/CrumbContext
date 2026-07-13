@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Made `claude-fable-5` the Anthropic default and raised the default output allowance to 4,096 tokens for Fable/Mythos always-on adaptive thinking.
+- Added explicit HTTP 200 refusal errors with `stop_details`, Fable 5 server-side Opus 4.8 fallback, fallback usage evidence, and streaming refusal handling.
+- Added Anthropic 5-minute/1-hour cache TTL controls and a deterministic four-breakpoint cap.
+- Added the `frontier-vision` profile for the 2576 px Claude image tier while retaining the broadly compatible 1568 px default.
+- Updated Anthropic docs, examples, CLI controls, versioned user-agent behavior, and offline injected-transport tests.
+
 - Consumed the one-shot `v0.1.0` release request after successful publication.
 - Made the release agent idempotent by treating an existing release tag as a safe no-op.
 - Added an inert release-request template for future versions.
