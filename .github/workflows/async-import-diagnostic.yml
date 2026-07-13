@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 jobs:
-  diagnose:
+  capture:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -26,10 +26,11 @@ jobs:
           python -m pip install --upgrade build >/tmp/pip-build.log 2>&1
           python -m build --wheel --outdir /tmp/crumbcontext-wheel >/tmp/wheel-build.log 2>&1
           python -m pip install /tmp/crumbcontext-wheel/*.whl >/tmp/wheel-install.log 2>&1
-      - name: Print installed async export contract
+      - name: Capture installed async export contract
         run: |
           cd /tmp
-          python - <<'PY'
+          set +e
+          python - <<'PY' > async-import.log 2>&1
           import crumbcontext.async_api as api
 
           print("module:", api.__file__)
@@ -53,3 +54,31 @@ jobs:
           assert not missing
           assert required <= set(api.__all__)
           PY
+          echo $? > async-import.status
+          exit 0
+      - name: Upload concise diagnostic
+        uses: actions/upload-artifact@v7
+        with:
+          name: async-import-diagnostic-${{ github.sha }}
+          path: |
+            /tmp/async-import.log
+            /tmp/async-import.status
+          if-no-files-found: error
+          retention-days: 3
+
+  report:
+    needs: capture
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: async-import-diagnostic-${{ github.sha }}
+          path: diagnostic
+      - name: Print installed async export contract
+        run: |
+          log="$(find diagnostic -name async-import.log -type f -print -quit)"
+          status_file="$(find diagnostic -name async-import.status -type f -print -quit)"
+          cat "$log"
+          status="$(cat "$status_file")"
+          echo "exit status: $status"
+          test "$status" = "0"
