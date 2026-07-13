@@ -12,12 +12,22 @@ on:
   pull_request:
     paths:
       - .github/workflows/verify-pypi.yml
+      - scripts/release-check.py
 
 permissions:
   contents: read
 
 jobs:
+  contract:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify the future public-index contract
+        run: python scripts/release-check.py
+
   verify-pypi:
+    if: github.event_name != 'pull_request'
     name: verify-pypi (${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
