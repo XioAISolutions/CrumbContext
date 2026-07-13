@@ -36,8 +36,13 @@ jobs:
         run: |
           set +e
           {
-            head -c 6017 scripts/.fable_payload_1 > /tmp/fable-migration.b64
-            cat scripts/.fable_payload_2 scripts/.fable_payload_3 scripts/.fable_payload_4 >> /tmp/fable-migration.b64
+            cat \
+              scripts/.fable_payload_1a scripts/.fable_payload_1b \
+              scripts/.fable_payload_1c scripts/.fable_payload_1d \
+              scripts/.fable_payload_1e scripts/.fable_payload_1f \
+              scripts/.fable_payload_1g scripts/.fable_payload_2 \
+              scripts/.fable_payload_3 scripts/.fable_payload_4 \
+              > /tmp/fable-migration.b64
             test "$(wc -c < /tmp/fable-migration.b64)" = "24068"
             echo "a0c7c8cb01bd9543c541f8407c18ada1fc9ea16ddeb44ed82eb91bb958549b42  /tmp/fable-migration.b64" | sha256sum -c -
             base64 -d /tmp/fable-migration.b64 > /tmp/apply_fable_mythos.py
