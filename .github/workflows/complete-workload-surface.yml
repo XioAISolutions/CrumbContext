@@ -1,0 +1,377 @@
+name: Complete workload surface
+
+on:
+  push:
+    branches:
+      - evidence/multi-workload-suite
+    paths:
+      - .github/workflows/complete-workload-surface.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  complete:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: evidence/multi-workload-suite
+          fetch-depth: 0
+      - name: Complete permanent project surface
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path_str: str, old: str, new: str) -> None:
+              path = Path(path_str)
+              text = path.read_text(encoding="utf-8")
+              if text.count(old) != 1:
+                  raise SystemExit(
+                      f"{path_str}: expected exactly one replacement target, found {text.count(old)}"
+                  )
+              path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          # Searchable documentation pages.
+          replace_once(
+              "scripts/build_docs.py",
+              '''    Page(
+                  "Python integration API",
+                  "docs/PYTHON_API.md",
+                  "python-api",
+                  "Build",
+                  "Use the supported provider-neutral Python API and native payload builders.",
+              ),
+              Page(
+                  "Routing profiles and schemas",''',
+              '''    Page(
+                  "Python integration API",
+                  "docs/PYTHON_API.md",
+                  "python-api",
+                  "Build",
+                  "Use the supported provider-neutral Python API and native payload builders.",
+              ),
+              Page(
+                  "Async and streaming API",
+                  "docs/ASYNC_STREAMING.md",
+                  "async-streaming",
+                  "Build",
+                  "Run providers without blocking and collect normalized streaming evidence.",
+              ),
+              Page(
+                  "Routing profiles and schemas",''',
+          )
+          replace_once(
+              "scripts/build_docs.py",
+              '''    Page(
+                  "Counterfactual measurement",
+                  "docs/COUNTERFACTUAL.md",
+                  "counterfactual",
+                  "Evidence",
+                  "Run the same task against baseline and routed context under one evaluation contract.",
+              ),
+              Page(
+                  "Provider-measured benchmarks",''',
+              '''    Page(
+                  "Counterfactual measurement",
+                  "docs/COUNTERFACTUAL.md",
+                  "counterfactual",
+                  "Evidence",
+                  "Run the same task against baseline and routed context under one evaluation contract.",
+              ),
+              Page(
+                  "Public workload suite",
+                  "docs/WORKLOADS.md",
+                  "workloads",
+                  "Evidence",
+                  "Evaluate five public context shapes across four deterministic routing profiles.",
+              ),
+              Page(
+                  "Provider-measured benchmarks",''',
+          )
+
+          # Documentation-site regression coverage.
+          replace_once(
+              "tests/test_docs_site.py",
+              '''    assert (output / "python-api" / "index.html").is_file()
+              assert (output / "routing-profiles" / "index.html").is_file()''',
+              '''    assert (output / "python-api" / "index.html").is_file()
+              assert (output / "async-streaming" / "index.html").is_file()
+              assert (output / "workloads" / "index.html").is_file()
+              assert (output / "routing-profiles" / "index.html").is_file()''',
+          )
+          replace_once(
+              "tests/test_docs_site.py",
+              '''        "/CrumbContext/python-api/",
+                  "/CrumbContext/provider-benchmarks/",''',
+              '''        "/CrumbContext/python-api/",
+                  "/CrumbContext/async-streaming/",
+                  "/CrumbContext/workloads/",
+                  "/CrumbContext/provider-benchmarks/",''',
+          )
+
+          # README navigation and evidence section.
+          replace_once(
+              "README.md",
+              '''  <a href="#30-second-proof"><strong>Run the proof</strong></a>
+                ·
+                <a href="#provider-measured-counterfactuals"><strong>Measure a provider</strong></a>''',
+              '''  <a href="#30-second-proof"><strong>Run the proof</strong></a>
+                ·
+                <a href="#public-workload-suite"><strong>Run workloads</strong></a>
+                ·
+                <a href="#provider-measured-counterfactuals"><strong>Measure a provider</strong></a>''',
+          )
+          replace_once(
+              "README.md",
+              '''<p align="center">
+                <img src="docs/assets/benchmark-proof.svg" alt="CrumbContext bundled benchmark proof" width="92%" />
+              </p>
+
+              ## 🧠 The rule that matters''',
+              '''<p align="center">
+                <img src="docs/assets/benchmark-proof.svg" alt="CrumbContext bundled benchmark proof" width="92%" />
+              </p>
+
+              ## 🌐 Public workload suite
+
+              One demo transcript is not enough evidence. Run five public synthetic context shapes through all four named routing profiles:
+
+              ```bash
+              crumbcontext workloads --out workload-proof --open
+              ```
+
+              ```text
+              5 workloads × 4 profiles = 20 deterministic runs
+              ```
+
+              The suite covers coding, research, operations, tool-heavy agents, and mixed-authority conversations. Every run checks exact anchors, authority, required rules, recency, image policy, strict-exact behavior, deterministic plans, and referenced artifacts.
+
+              Outputs include aggregate and per-run JSON, full routing bundles, an HTML report, fixture and manifest SHA-256 hashes, and a share card. See [`docs/WORKLOADS.md`](docs/WORKLOADS.md) for the fixture protocol and claims boundary.
+
+              > **Claims boundary:** workload token reductions are deterministic planning estimates. They are not provider billing, answer-quality scores, or universal savings claims.
+
+              ## 🧠 The rule that matters''',
+          )
+
+          # Independent public-PyPI verification for future releases.
+          replace_once(
+              ".github/workflows/verify-pypi.yml",
+              '''          crumbcontext benchmark --out crumbcontext-pypi-proof
+                        crumbcontext counterfactual --provider mock --out crumbcontext-pypi-counterfactual
+                        python -c "import json; assert json.load(open('/tmp/crumbcontext-pypi-proof/benchmark.json'))['passed']"
+                        python -c "import json; assert json.load(open('/tmp/crumbcontext-pypi-counterfactual/counterfactual.json'))['passed']"''',
+              '''          crumbcontext benchmark --out crumbcontext-pypi-proof
+                        crumbcontext counterfactual --provider mock --out crumbcontext-pypi-counterfactual
+                        crumbcontext workloads --out crumbcontext-pypi-workloads
+                        python -c "import json; assert json.load(open('/tmp/crumbcontext-pypi-proof/benchmark.json'))['passed']"
+                        python -c "import json; assert json.load(open('/tmp/crumbcontext-pypi-counterfactual/counterfactual.json'))['passed']"
+                        python -c "import json; s=json.load(open('/tmp/crumbcontext-pypi-workloads/suite.json')); assert s['passed'] and s['summary']['runs'] == 20"''',
+          )
+          replace_once(
+              ".github/workflows/verify-pypi.yml",
+              '''            /tmp/crumbcontext-pypi-proof/
+                          /tmp/crumbcontext-pypi-counterfactual/''',
+              '''            /tmp/crumbcontext-pypi-proof/
+                          /tmp/crumbcontext-pypi-counterfactual/
+                          /tmp/crumbcontext-pypi-workloads/''',
+          )
+
+          # Release contract inputs.
+          replace_once(
+              "scripts/release-check.py",
+              '''    python_api_workflow = read(".github/workflows/python-api.yml")
+                  docs_workflow = read(".github/workflows/docs.yml")''',
+              '''    python_api_workflow = read(".github/workflows/python-api.yml")
+                  async_workflow = read(".github/workflows/async-streaming.yml")
+                  workload_workflow = read(".github/workflows/workloads.yml")
+                  docs_workflow = read(".github/workflows/docs.yml")''',
+          )
+          replace_once(
+              "scripts/release-check.py",
+              '''    python_api = read("crumbcontext/api.py")
+
+                  project_version''',
+              '''    python_api = read("crumbcontext/api.py")
+                  async_api = read("crumbcontext/async_api.py")
+                  workloads = read("crumbcontext/workloads.py")
+
+                  project_version''',
+          )
+          replace_once(
+              "scripts/release-check.py",
+              '''        "crumbcontext/schemas.py",
+                      "crumbcontext/providers/anthropic.py",''',
+              '''        "crumbcontext/schemas.py",
+                      "crumbcontext/workloads.py",
+                      "crumbcontext/fixtures/workloads/v1/manifest.json",
+                      "crumbcontext/async_api.py",
+                      "crumbcontext/providers/async_base.py",
+                      "crumbcontext/providers/async_registry.py",
+                      "crumbcontext/providers/sse.py",
+                      "crumbcontext/providers/streaming_adapters.py",
+                      "crumbcontext/providers/anthropic.py",''',
+          )
+          replace_once(
+              "scripts/release-check.py",
+              '''        "docs/PROVIDER_BENCHMARKS.md",
+                      "docs/PYTHON_API.md",''',
+              '''        "docs/PROVIDER_BENCHMARKS.md",
+                      "docs/WORKLOADS.md",
+                      "docs/ASYNC_STREAMING.md",
+                      "docs/PYTHON_API.md",''',
+          )
+          replace_once(
+              "scripts/release-check.py",
+              '''        "tests/test_public_api.py",
+                      "tests/test_redaction.py",''',
+              '''        "tests/test_public_api.py",
+                      "tests/test_async_streaming.py",
+                      "tests/test_workloads.py",
+                      "tests/test_redaction.py",''',
+          )
+          replace_once(
+              "scripts/release-check.py",
+              '''        ".github/workflows/docs.yml",
+                      ".github/workflows/provider-benchmark.yml",''',
+              '''        ".github/workflows/docs.yml",
+                      ".github/workflows/async-streaming.yml",
+                      ".github/workflows/workloads.yml",
+                      ".github/workflows/provider-benchmark.yml",''',
+          )
+          replace_once(
+              "scripts/release-check.py",
+              '''            "Exact facts never depend on pixels.",
+                      ),''',
+              '''            "Exact facts never depend on pixels.",
+                          "crumbcontext workloads",
+                          "docs/WORKLOADS.md",
+                          "20 deterministic runs",
+                      ),''',
+          )
+          replace_once(
+              "scripts/release-check.py",
+              '''            read("docs/PYTHON_API.md"),
+                          read("docs/ROUTING_PROFILES.md"),''',
+              '''            read("docs/PYTHON_API.md"),
+                          read("docs/ASYNC_STREAMING.md"),
+                          read("docs/WORKLOADS.md"),
+                          read("docs/ROUTING_PROFILES.md"),''',
+          )
+          replace_once(
+              "scripts/release-check.py",
+              '''            "crumbcontext counterfactual --provider mock",
+                          "actions/upload-artifact@v7",''',
+              '''            "crumbcontext counterfactual --provider mock",
+                          "crumbcontext workloads",
+                          "crumbcontext-pypi-workloads",
+                          "actions/upload-artifact@v7",''',
+          )
+
+          async_and_workload_contract = '''
+              require_fragments(
+                  async_workflow,
+                  (
+                      'python-version: ["3.10", "3.11", "3.12"]',
+                      "Build and install the wheel",
+                      "Verify the installed async surface outside the source tree",
+                      "Run keyless async examples against the installed wheel",
+                      "tests/test_async_streaming.py",
+                  ),
+                  "async streaming workflow",
+              )
+
+              require_fragments(
+                  workload_workflow,
+                  (
+                      'python-version: ["3.10", "3.11", "3.12"]',
+                      "Run the bundled suite outside the source tree",
+                      "Verify the installed workload contract",
+                      "crumbcontext workloads",
+                      "tests/test_workloads.py",
+                      "actions/upload-artifact@v7",
+                  ),
+                  "workload suite workflow",
+              )
+
+          '''
+          replace_once(
+              "scripts/release-check.py",
+              '''    require_fragments(
+                  docs_workflow,''',
+              async_and_workload_contract + '''    require_fragments(
+                  docs_workflow,''',
+          )
+          replace_once(
+              "scripts/release-check.py",
+              '''            'ROOT / "docs" / "site-assets" / "site.js"',
+                      ),''',
+              '''            'ROOT / "docs" / "site-assets" / "site.js"',
+                          '"docs/ASYNC_STREAMING.md"',
+                          '"docs/WORKLOADS.md"',
+                      ),''',
+          )
+          replace_once(
+              "scripts/release-check.py",
+              '''            'Documentation = "https://xioaisolutions.github.io/CrumbContext/"',
+                      ),''',
+              '''            'Documentation = "https://xioaisolutions.github.io/CrumbContext/"',
+                          '"fixtures/workloads/v1/*.json"',
+                      ),''',
+          )
+          replace_once(
+              "scripts/release-check.py",
+              '''            'PROVIDER_REQUEST_SCHEMA = "crumbcontext.provider-request.v1"',
+                          "allow_legacy_missing",''',
+              '''            'PROVIDER_REQUEST_SCHEMA = "crumbcontext.provider-request.v1"',
+                          'WORKLOAD_MANIFEST_SCHEMA = "crumbcontext.workload-manifest.v1"',
+                          'WORKLOAD_RESULT_SCHEMA = "crumbcontext.workload-result.v1"',
+                          'WORKLOAD_SUITE_RESULT_SCHEMA = "crumbcontext.workload-suite-result.v1"',
+                          "allow_legacy_missing",''',
+          )
+
+          workload_module_contract = '''
+              require_fragments(
+                  async_api,
+                  (
+                      "AnthropicStreamingProvider",
+                      "OpenAIStreamingProvider",
+                      "ProviderStreamCancelled",
+                      "execute_provider_stream",
+                  ),
+                  "async public API",
+              )
+
+              require_fragments(
+                  workloads,
+                  (
+                      "DEFAULT_MANIFEST",
+                      "load_workload_manifest",
+                      "run_workload_suite",
+                      "all_exact_anchors_preserved",
+                      "required_lane_coverage",
+                      "deterministic_plan",
+                      "Token figures are deterministic routing estimates",
+                  ),
+                  "workload suite implementation",
+              )
+
+          '''
+          replace_once(
+              "scripts/release-check.py",
+              '''    require_fragments(
+                  release_agent_script,''',
+              workload_module_contract + '''    require_fragments(
+                  release_agent_script,''',
+          )
+          PY
+      - name: Verify the completed release contract
+        run: python scripts/release-check.py
+      - name: Commit permanent surface changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md scripts/build_docs.py scripts/release-check.py tests/test_docs_site.py .github/workflows/verify-pypi.yml
+          git commit -m "Complete workload and async release surface"
+          git push origin HEAD:evidence/multi-workload-suite
