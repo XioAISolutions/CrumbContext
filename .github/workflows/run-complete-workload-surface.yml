@@ -21,11 +21,12 @@ jobs:
           fetch-depth: 0
       - name: Apply permanent surface edits
         run: python scripts/complete_surface.py
-      - name: Verify permanent project contracts
-        run: |
-          python scripts/release-check.py
-          python scripts/build_docs.py --out /tmp/crumbcontext-docs --base-path /CrumbContext/ --site-url https://xioaisolutions.github.io
-          pytest tests/test_docs_site.py tests/test_workloads.py tests/test_async_streaming.py
+      - name: Verify release contract
+        run: python scripts/release-check.py
+      - name: Build documentation site
+        run: python scripts/build_docs.py --out /tmp/crumbcontext-docs --base-path /CrumbContext/ --site-url https://xioaisolutions.github.io
+      - name: Run targeted regression tests
+        run: pytest tests/test_docs_site.py tests/test_workloads.py tests/test_async_streaming.py
       - name: Commit permanent surface changes
         run: |
           git config user.name "github-actions[bot]"
