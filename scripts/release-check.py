@@ -133,6 +133,9 @@ def check_release(tag: str | None = None) -> str:
             "store: false",
             "provider-reported",
             "Exact facts never depend on pixels.",
+            "crumbcontext workloads",
+            "docs/WORKLOADS.md",
+            "20 deterministic runs",
         ),
         "README release surface",
     )
@@ -153,6 +156,8 @@ def check_release(tag: str | None = None) -> str:
             read("docs/LAUNCH_KIT.md"),
             read("docs/RELEASE.md"),
             read("docs/PYTHON_API.md"),
+            read("docs/ASYNC_STREAMING.md"),
+            read("docs/WORKLOADS.md"),
             read("docs/ROUTING_PROFILES.md"),
         )
     )
@@ -221,6 +226,8 @@ def check_release(tag: str | None = None) -> str:
             'matrix:\n        python-version: ["3.10", "3.11", "3.12"]',
             "crumbcontext benchmark",
             "crumbcontext counterfactual --provider mock",
+            "crumbcontext workloads",
+            "crumbcontext-pypi-workloads",
             "actions/upload-artifact@v7",
         ),
         "PyPI verification workflow",
@@ -283,6 +290,8 @@ def check_release(tag: str | None = None) -> str:
             ".nojekyll",
             'ROOT / "docs" / "site-assets" / "site.css"',
             'ROOT / "docs" / "site-assets" / "site.js"',
+            '"docs/ASYNC_STREAMING.md"',
+            '"docs/WORKLOADS.md"',
         ),
         "documentation builder",
     )
@@ -293,6 +302,7 @@ def check_release(tag: str | None = None) -> str:
             'docs = [',
             '"Markdown>=3.8,<4"',
             'Documentation = "https://xioaisolutions.github.io/CrumbContext/"',
+            '"fixtures/workloads/v1/*.json"',
         ),
         "documentation package metadata",
     )
@@ -316,6 +326,9 @@ def check_release(tag: str | None = None) -> str:
             'ROUTE_PLAN_SCHEMA = "crumbcontext.route-plan.v1"',
             'COUNTERFACTUAL_RESULT_SCHEMA = "crumbcontext.counterfactual-result.v1"',
             'PROVIDER_REQUEST_SCHEMA = "crumbcontext.provider-request.v1"',
+            'WORKLOAD_MANIFEST_SCHEMA = "crumbcontext.workload-manifest.v1"',
+            'WORKLOAD_RESULT_SCHEMA = "crumbcontext.workload-result.v1"',
+            'WORKLOAD_SUITE_RESULT_SCHEMA = "crumbcontext.workload-suite-result.v1"',
             "allow_legacy_missing",
             "unsupported schema_version",
         ),
@@ -362,6 +375,56 @@ def check_release(tag: str | None = None) -> str:
             '"branch": "main"',
         ),
         "release-request template",
+    )
+
+    require_fragments(
+        read(".github/workflows/async-streaming.yml"),
+        (
+            'python-version: ["3.10", "3.11", "3.12"]',
+            "Build and install the wheel",
+            "Verify the installed async surface outside the source tree",
+            "Run keyless async examples against the installed wheel",
+            "tests/test_async_streaming.py",
+        ),
+        "async streaming workflow",
+    )
+
+    require_fragments(
+        read(".github/workflows/workloads.yml"),
+        (
+            'python-version: ["3.10", "3.11", "3.12"]',
+            "Run the bundled suite outside the source tree",
+            "Verify the installed workload contract",
+            "crumbcontext workloads",
+            "tests/test_workloads.py",
+            "actions/upload-artifact@v7",
+        ),
+        "workload suite workflow",
+    )
+
+    require_fragments(
+        read("crumbcontext/async_api.py"),
+        (
+            "AnthropicStreamingProvider",
+            "OpenAIStreamingProvider",
+            "ProviderStreamCancelled",
+            "execute_provider_stream",
+        ),
+        "async public API",
+    )
+
+    require_fragments(
+        read("crumbcontext/workloads.py"),
+        (
+            "WORKLOAD_MANIFEST_SCHEMA",
+            "WORKLOAD_RESULT_SCHEMA",
+            "WORKLOAD_SUITE_RESULT_SCHEMA",
+            "run_workload_suite",
+            "all_exact_anchors_preserved",
+            "authority_blocks_stay_exact",
+            "deterministic_plan",
+        ),
+        "workload evaluation module",
     )
 
     if "environment:\n      name: pypi" not in publish:

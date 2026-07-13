@@ -22,6 +22,8 @@
   ·
   <a href="#30-second-proof"><strong>Run the proof</strong></a>
   ·
+  <a href="#public-workload-suite"><strong>Run workloads</strong></a>
+  ·
   <a href="#provider-measured-counterfactuals"><strong>Measure a provider</strong></a>
   ·
   <a href="docs/ARCHITECTURE.md"><strong>Architecture</strong></a>
@@ -95,6 +97,24 @@ proof/
 <p align="center">
   <img src="docs/assets/benchmark-proof.svg" alt="CrumbContext bundled benchmark proof" width="92%" />
 </p>
+
+## 🌐 Public workload suite
+
+One demo transcript is not enough evidence. Run five public synthetic context shapes through all four named routing profiles:
+
+```bash
+crumbcontext workloads --out workload-proof --open
+```
+
+```text
+5 workloads × 4 profiles = 20 deterministic runs
+```
+
+The suite covers coding, research, operations, tool-heavy agents, and mixed-authority conversations. Every run checks exact anchors, authority, required rules, recency, image policy, strict-exact behavior, deterministic plans, and referenced artifacts.
+
+Outputs include aggregate and per-run JSON, full routing bundles, an HTML report, fixture and manifest SHA-256 hashes, and a share card. See [`docs/WORKLOADS.md`](docs/WORKLOADS.md) for the fixture protocol and claims boundary.
+
+> **Claims boundary:** workload token reductions are deterministic planning estimates. They are not provider billing, answer-quality scores, or universal savings claims.
 
 ## 🧠 The rule that matters
 

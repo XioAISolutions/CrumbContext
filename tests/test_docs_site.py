@@ -28,6 +28,8 @@ def test_builds_all_pages_search_assets_and_metadata(tmp_path: Path):
     assert (output / "index.html").is_file()
     assert (output / "getting-started" / "index.html").is_file()
     assert (output / "python-api" / "index.html").is_file()
+    assert (output / "async-streaming" / "index.html").is_file()
+    assert (output / "workloads" / "index.html").is_file()
     assert (output / "routing-profiles" / "index.html").is_file()
     assert (output / "security" / "index.html").is_file()
     assert (output / "assets" / "site.css").is_file()
@@ -43,6 +45,8 @@ def test_builds_all_pages_search_assets_and_metadata(tmp_path: Path):
     assert {entry["url"] for entry in search} >= {
         "/CrumbContext/",
         "/CrumbContext/python-api/",
+        "/CrumbContext/async-streaming/",
+        "/CrumbContext/workloads/",
         "/CrumbContext/provider-benchmarks/",
     }
     assert any("exact anchors" in entry["text"].lower() for entry in search)
