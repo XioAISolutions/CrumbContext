@@ -1,0 +1,55 @@
+name: Async import diagnostic
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/async-import-diagnostic.yml
+      - crumbcontext/async_api.py
+      - crumbcontext/providers/async_*.py
+      - crumbcontext/providers/sse.py
+      - crumbcontext/providers/streaming_adapters.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Build and install wheel outside source tree
+        run: |
+          python -m pip install --upgrade build
+          python -m build --wheel --outdir /tmp/crumbcontext-wheel
+          python -m pip install /tmp/crumbcontext-wheel/*.whl
+      - name: Print installed async export contract
+        run: |
+          cd /tmp
+          python - <<'PY'
+          import crumbcontext.async_api as api
+
+          print("module:", api.__file__)
+          print("exports:", api.__all__)
+          missing = [name for name in api.__all__ if not hasattr(api, name)]
+          print("missing:", missing)
+          required = {
+              "AnthropicStreamingProvider",
+              "MockStreamingProvider",
+              "OpenAIStreamingProvider",
+              "ProviderStreamCancelled",
+              "ProviderStreamError",
+              "StreamEvent",
+              "StreamResult",
+              "collect_stream",
+              "decode_sse",
+              "execute_named_provider_async",
+              "execute_provider_stream",
+          }
+          print("required missing:", sorted(required - set(api.__all__)))
+          assert not missing
+          assert required <= set(api.__all__)
+          PY
