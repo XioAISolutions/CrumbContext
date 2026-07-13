@@ -5,7 +5,6 @@ on:
     paths:
       - scripts/workload-surface-trigger.txt
       - .github/workflows/run-complete-workload-surface.yml
-      - .github/workflows/complete-workload-surface.yml
   workflow_dispatch:
 
 permissions:
@@ -20,67 +19,255 @@ jobs:
         with:
           ref: ${{ github.head_ref || 'evidence/multi-workload-suite' }}
           fetch-depth: 0
-      - name: Extract the reviewed completion script
+      - name: Apply permanent surface edits
         run: |
           python - <<'PY'
           from pathlib import Path
 
-          source = Path('.github/workflows/complete-workload-surface.yml').read_text(encoding='utf-8')
-          start_marker = "          python - <<'PY'\n"
-          end_marker = "\n          PY\n      - name: Verify the completed release contract"
-          start = source.index(start_marker) + len(start_marker)
-          end = source.index(end_marker, start)
-          lines = source[start:end].splitlines()
-          script = "\n".join(line[10:] if line.startswith("          ") else line for line in lines) + "\n"
-          Path('/tmp/complete_workload_surface.py').write_text(script, encoding='utf-8')
+          def read(path: str) -> str:
+              return Path(path).read_text(encoding="utf-8")
+
+          def write(path: str, text: str) -> None:
+              Path(path).write_text(text, encoding="utf-8")
+
+          def replace_once(path: str, old: str, new: str, sentinel: str) -> None:
+              text = read(path)
+              if sentinel in text:
+                  return
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: marker count for {old!r} was {count}")
+              write(path, text.replace(old, new, 1))
+
+          # README navigation and public workload section.
+          replace_once(
+              "README.md",
+              '  <a href="#30-second-proof"><strong>Run the proof</strong></a>\n',
+              '  <a href="#30-second-proof"><strong>Run the proof</strong></a>\n'
+              '  ·\n'
+              '  <a href="#public-workload-suite"><strong>Run workloads</strong></a>\n',
+              'href="#public-workload-suite"',
+          )
+          replace_once(
+              "README.md",
+              '## 🧠 The rule that matters\n',
+              '''## 🌐 Public workload suite
+
+One demo transcript is not enough evidence. Run five public synthetic context shapes through all four named routing profiles:
+
+```bash
+crumbcontext workloads --out workload-proof --open
+```
+
+```text
+5 workloads × 4 profiles = 20 deterministic runs
+```
+
+The suite covers coding, research, operations, tool-heavy agents, and mixed-authority conversations. Every run checks exact anchors, authority, required rules, recency, image policy, strict-exact behavior, deterministic plans, and referenced artifacts.
+
+Outputs include aggregate and per-run JSON, full routing bundles, an HTML report, fixture and manifest SHA-256 hashes, and a share card. See [`docs/WORKLOADS.md`](docs/WORKLOADS.md) for the fixture protocol and claims boundary.
+
+> **Claims boundary:** workload token reductions are deterministic planning estimates. They are not provider billing, answer-quality scores, or universal savings claims.
+
+## 🧠 The rule that matters
+''',
+              '## 🌐 Public workload suite',
+          )
+
+          # Searchable documentation pages.
+          replace_once(
+              "scripts/build_docs.py",
+              '    Page(\n        "Routing profiles and schemas",',
+              '''    Page(
+        "Async and streaming API",
+        "docs/ASYNC_STREAMING.md",
+        "async-streaming",
+        "Build",
+        "Run providers without blocking and collect normalized streaming evidence.",
+    ),
+    Page(
+        "Routing profiles and schemas",''',
+              '"docs/ASYNC_STREAMING.md"',
+          )
+          replace_once(
+              "scripts/build_docs.py",
+              '    Page(\n        "Provider-measured benchmarks",',
+              '''    Page(
+        "Public workload suite",
+        "docs/WORKLOADS.md",
+        "workloads",
+        "Evidence",
+        "Evaluate five public context shapes across four deterministic routing profiles.",
+    ),
+    Page(
+        "Provider-measured benchmarks",''',
+              '"docs/WORKLOADS.md"',
+          )
+
+          # Documentation-site regression coverage.
+          replace_once(
+              "tests/test_docs_site.py",
+              '    assert (output / "python-api" / "index.html").is_file()\n',
+              '    assert (output / "python-api" / "index.html").is_file()\n'
+              '    assert (output / "async-streaming" / "index.html").is_file()\n'
+              '    assert (output / "workloads" / "index.html").is_file()\n',
+              'output / "workloads" / "index.html"',
+          )
+          replace_once(
+              "tests/test_docs_site.py",
+              '        "/CrumbContext/python-api/",\n',
+              '        "/CrumbContext/python-api/",\n'
+              '        "/CrumbContext/async-streaming/",\n'
+              '        "/CrumbContext/workloads/",\n',
+              '"/CrumbContext/workloads/"',
+          )
+
+          # Independent public-PyPI verification for future releases.
+          replace_once(
+              ".github/workflows/verify-pypi.yml",
+              '          crumbcontext counterfactual --provider mock --out crumbcontext-pypi-counterfactual\n',
+              '          crumbcontext counterfactual --provider mock --out crumbcontext-pypi-counterfactual\n'
+              '          crumbcontext workloads --out crumbcontext-pypi-workloads\n',
+              'crumbcontext workloads --out crumbcontext-pypi-workloads',
+          )
+          replace_once(
+              ".github/workflows/verify-pypi.yml",
+              '          python -c "import json; assert json.load(open(\'/tmp/crumbcontext-pypi-counterfactual/counterfactual.json\'))[\'passed\']"\n',
+              '          python -c "import json; assert json.load(open(\'/tmp/crumbcontext-pypi-counterfactual/counterfactual.json\'))[\'passed\']"\n'
+              '          python -c "import json; s=json.load(open(\'/tmp/crumbcontext-pypi-workloads/suite.json\')); assert s[\'passed\'] and s[\'summary\'][\'runs\'] == 20"\n',
+              "crumbcontext-pypi-workloads/suite.json",
+          )
+          replace_once(
+              ".github/workflows/verify-pypi.yml",
+              '            /tmp/crumbcontext-pypi-counterfactual/\n',
+              '            /tmp/crumbcontext-pypi-counterfactual/\n'
+              '            /tmp/crumbcontext-pypi-workloads/\n',
+              '/tmp/crumbcontext-pypi-workloads/',
+          )
+
+          # Extend the release contract without restructuring existing checks.
+          replace_once(
+              "scripts/release-check.py",
+              '            "Exact facts never depend on pixels.",\n',
+              '            "Exact facts never depend on pixels.",\n'
+              '            "crumbcontext workloads",\n'
+              '            "docs/WORKLOADS.md",\n'
+              '            "20 deterministic runs",\n',
+              '"20 deterministic runs",',
+          )
+          replace_once(
+              "scripts/release-check.py",
+              '            read("docs/PYTHON_API.md"),\n',
+              '            read("docs/PYTHON_API.md"),\n'
+              '            read("docs/ASYNC_STREAMING.md"),\n'
+              '            read("docs/WORKLOADS.md"),\n',
+              'read("docs/WORKLOADS.md")',
+          )
+          replace_once(
+              "scripts/release-check.py",
+              '            "crumbcontext counterfactual --provider mock",\n',
+              '            "crumbcontext counterfactual --provider mock",\n'
+              '            "crumbcontext workloads",\n'
+              '            "crumbcontext-pypi-workloads",\n',
+              '"crumbcontext-pypi-workloads",',
+          )
+          replace_once(
+              "scripts/release-check.py",
+              '            \'ROOT / "docs" / "site-assets" / "site.js"\',\n',
+              '            \'ROOT / "docs" / "site-assets" / "site.js"\',\n'
+              '            \'"docs/ASYNC_STREAMING.md"\',\n'
+              '            \'"docs/WORKLOADS.md"\',\n',
+              '\'"docs/WORKLOADS.md"\'',
+          )
+          replace_once(
+              "scripts/release-check.py",
+              '            \'Documentation = "https://xioaisolutions.github.io/CrumbContext/"\',\n',
+              '            \'Documentation = "https://xioaisolutions.github.io/CrumbContext/"\',\n'
+              '            \'"fixtures/workloads/v1/*.json"\',\n',
+              '\'"fixtures/workloads/v1/*.json"\'',
+          )
+          replace_once(
+              "scripts/release-check.py",
+              '            \'PROVIDER_REQUEST_SCHEMA = "crumbcontext.provider-request.v1"\',\n',
+              '            \'PROVIDER_REQUEST_SCHEMA = "crumbcontext.provider-request.v1"\',\n'
+              '            \'WORKLOAD_MANIFEST_SCHEMA = "crumbcontext.workload-manifest.v1"\',\n'
+              '            \'WORKLOAD_RESULT_SCHEMA = "crumbcontext.workload-result.v1"\',\n'
+              '            \'WORKLOAD_SUITE_RESULT_SCHEMA = "crumbcontext.workload-suite-result.v1"\',\n',
+              'WORKLOAD_SUITE_RESULT_SCHEMA',
+          )
+
+          contract_block = '''    require_fragments(
+        read(".github/workflows/async-streaming.yml"),
+        (
+            'python-version: ["3.10", "3.11", "3.12"]',
+            "Build and install the wheel",
+            "Verify the installed async surface outside the source tree",
+            "Run keyless async examples against the installed wheel",
+            "tests/test_async_streaming.py",
+        ),
+        "async streaming workflow",
+    )
+
+    require_fragments(
+        read(".github/workflows/workloads.yml"),
+        (
+            'python-version: ["3.10", "3.11", "3.12"]',
+            "Run the bundled suite outside the source tree",
+            "Verify the installed workload contract",
+            "crumbcontext workloads",
+            "tests/test_workloads.py",
+            "actions/upload-artifact@v7",
+        ),
+        "workload suite workflow",
+    )
+
+    require_fragments(
+        read("crumbcontext/async_api.py"),
+        (
+            "AnthropicStreamingProvider",
+            "OpenAIStreamingProvider",
+            "ProviderStreamCancelled",
+            "execute_provider_stream",
+        ),
+        "async public API",
+    )
+
+    require_fragments(
+        read("crumbcontext/workloads.py"),
+        (
+            "WORKLOAD_MANIFEST_SCHEMA",
+            "WORKLOAD_RESULT_SCHEMA",
+            "WORKLOAD_SUITE_RESULT_SCHEMA",
+            "run_workload_suite",
+            "exact_anchor_recall",
+            "authority_exact",
+            "deterministic_plan",
+        ),
+        "workload evaluation module",
+    )
+
+'''
+          replace_once(
+              "scripts/release-check.py",
+              '    if "environment:\\n      name: pypi" not in publish:\n',
+              contract_block + '    if "environment:\\n      name: pypi" not in publish:\n',
+              '"workload evaluation module"',
+          )
           PY
-      - name: Capture completion result
-        id: completion
-        run: |
-          set +e
-          python /tmp/complete_workload_surface.py > /tmp/workload-surface.log 2>&1
-          status=$?
-          echo "$status" > /tmp/workload-surface.status
-          echo "status=$status" >> "$GITHUB_OUTPUT"
-          exit 0
-      - name: Upload concise completion result
-        uses: actions/upload-artifact@v7
-        with:
-          name: workload-surface-diagnostic-${{ github.sha }}
-          path: |
-            /tmp/workload-surface.log
-            /tmp/workload-surface.status
-          if-no-files-found: error
-          retention-days: 3
       - name: Verify permanent project contracts
-        if: steps.completion.outputs.status == '0'
         run: |
           python scripts/release-check.py
           python scripts/build_docs.py --out /tmp/crumbcontext-docs --base-path /CrumbContext/ --site-url https://xioaisolutions.github.io
-          pytest tests/test_docs_site.py tests/test_workloads.py
+          pytest tests/test_docs_site.py tests/test_workloads.py tests/test_async_streaming.py
       - name: Commit permanent surface changes
-        if: steps.completion.outputs.status == '0'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add README.md scripts/build_docs.py scripts/release-check.py tests/test_docs_site.py .github/workflows/verify-pypi.yml
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "Permanent surface already complete."
+            exit 0
+          fi
           git commit -m "Complete workload and async release surface"
           git push origin HEAD:evidence/multi-workload-suite
-
-  report:
-    needs: complete
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v8
-        with:
-          name: workload-surface-diagnostic-${{ github.sha }}
-          path: diagnostic
-      - name: Print completion result
-        run: |
-          log="$(find diagnostic -name workload-surface.log -type f -print -quit)"
-          status_file="$(find diagnostic -name workload-surface.status -type f -print -quit)"
-          echo "--- workload surface completion ---"
-          cat "$log"
-          status="$(cat "$status_file")"
-          echo "exit status: $status"
-          test "$status" = "0"
