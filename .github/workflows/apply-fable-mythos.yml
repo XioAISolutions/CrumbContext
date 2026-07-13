@@ -31,15 +31,16 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-      - name: Reconstruct migration
-        run: |
-          cat scripts/.fable_payload_1 scripts/.fable_payload_2 scripts/.fable_payload_3 scripts/.fable_payload_4 | base64 -d > /tmp/apply_fable_mythos.py
-          python -m py_compile /tmp/apply_fable_mythos.py
-      - name: Capture migration result
+      - name: Capture reconstruction and migration
         id: migrate
         run: |
           set +e
-          python /tmp/apply_fable_mythos.py > /tmp/fable-migration.log 2>&1
+          {
+            cat scripts/.fable_payload_1 scripts/.fable_payload_2 scripts/.fable_payload_3 scripts/.fable_payload_4 > /tmp/fable-migration.b64
+            base64 -d /tmp/fable-migration.b64 > /tmp/apply_fable_mythos.py
+            python -m py_compile /tmp/apply_fable_mythos.py
+            python /tmp/apply_fable_mythos.py
+          } > /tmp/fable-migration.log 2>&1
           status=$?
           echo "$status" > /tmp/fable-migration.status
           echo "status=$status" >> "$GITHUB_OUTPUT"
