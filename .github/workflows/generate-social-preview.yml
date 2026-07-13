@@ -1,0 +1,110 @@
+name: Generate social preview PNG
+
+on:
+  push:
+    branches:
+      - docs/github-pages-site
+    paths:
+      - .github/workflows/generate-social-preview.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: docs/github-pages-site
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install image dependency
+        run: python -m pip install 'Pillow>=10'
+      - name: Render deterministic branded preview
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageDraw, ImageFont
+
+          width, height = 1280, 640
+          image = Image.new("RGB", (width, height), "#070b13")
+          pixels = image.load()
+          for y in range(height):
+              for x in range(width):
+                  t = (x / width) * 0.58 + (y / height) * 0.42
+                  pixels[x, y] = (
+                      int(7 + 7 * t),
+                      int(11 + 24 * t),
+                      int(19 + 40 * t),
+                  )
+
+          draw = ImageDraw.Draw(image, "RGBA")
+          draw.ellipse((965, -155, 1400, 280), fill=(124, 92, 255, 36))
+          draw.ellipse((-180, 420, 250, 850), fill=(39, 217, 255, 24))
+
+          regular = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+          bold = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+          mono = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
+          title_font = ImageFont.truetype(bold, 68)
+          subtitle_font = ImageFont.truetype(regular, 27)
+          label_font = ImageFont.truetype(bold, 18)
+          lane_font = ImageFont.truetype(mono, 17)
+          command_font = ImageFont.truetype(mono, 18)
+
+          # Crumb mark.
+          cx, cy, radius = 178, 215, 115
+          draw.ellipse((cx-radius, cy-radius, cx+radius, cy+radius), fill=(10, 19, 34, 255), outline=(64, 102, 166, 255), width=4)
+          draw.ellipse((92, 129, 264, 301), fill=(226, 143, 55, 255), outline=(255, 207, 117, 255), width=5)
+          draw.ellipse((220, 112, 310, 202), fill=(7, 11, 19, 255))
+          for px, py, pr in ((145,170,10),(205,155,8),(132,225,8),(191,247,11),(230,218,7)):
+              draw.ellipse((px-pr, py-pr, px+pr, py+pr), fill=(103, 50, 27, 255))
+          draw.ellipse((145,205,151,211), fill=(8, 20, 35, 255))
+          draw.ellipse((204,205,210,211), fill=(8, 20, 35, 255))
+          draw.arc((157,210,201,244), start=15, end=165, fill=(8, 20, 35, 255), width=4)
+
+          draw.text((335, 116), "CrumbContext", font=title_font, fill="#ffffff")
+          draw.text((338, 202), "Context without the baggage.", font=subtitle_font, fill="#b8c6de")
+          draw.text((338, 244), "Exact facts stay exact. Stale context takes the cheaper, explainable lane.", font=subtitle_font, fill="#8fa4c2")
+
+          lanes = (
+              ("EXACT", "authority + literals"),
+              ("CACHE", "stable reuse"),
+              ("CRUMB", "portable memory"),
+              ("IMAGE", "old dense history"),
+              ("SUMMARY", "old semantic context"),
+          )
+          x = 72
+          y = 370
+          for index, (name, detail) in enumerate(lanes):
+              box_w = (210, 205, 210, 218, 245)[index]
+              draw.rounded_rectangle((x, y, x + box_w, y + 82), radius=17, fill=(15, 24, 39, 235), outline=(46, 64, 91, 255), width=2)
+              accent = (124, 92, 255, 255) if index < 3 else (39, 217, 255, 255)
+              draw.ellipse((x + 18, y + 19, x + 30, y + 31), fill=accent)
+              draw.text((x + 42, y + 13), name, font=label_font, fill="#ffffff")
+              draw.text((x + 18, y + 48), detail, font=lane_font, fill="#8fa4c2")
+              x += box_w + 14
+
+          draw.rounded_rectangle((72, 520, 1208, 582), radius=15, fill=(6, 12, 22, 225), outline=(38, 58, 84, 255), width=2)
+          draw.text((96, 539), "pip install crumb-context   •   crumbcontext benchmark --out proof", font=command_font, fill="#d4def0")
+          draw.text((72, 604), "github.com/XioAISolutions/CrumbContext", font=lane_font, fill="#6f849f")
+
+          output = Path("docs/assets/social-preview.png")
+          output.parent.mkdir(parents=True, exist_ok=True)
+          image.save(output, format="PNG", optimize=True)
+          print(f"wrote {output} ({output.stat().st_size} bytes)")
+          PY
+      - name: Commit generated PNG
+        run: |
+          if git diff --quiet -- docs/assets/social-preview.png && git ls-files --error-unmatch docs/assets/social-preview.png >/dev/null 2>&1; then
+            echo "social preview already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/assets/social-preview.png
+          git commit -m "Add branded social preview PNG"
+          git push origin HEAD:docs/github-pages-site
