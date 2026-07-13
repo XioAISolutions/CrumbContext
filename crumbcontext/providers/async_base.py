@@ -159,7 +159,7 @@ class ProviderStreamError(RuntimeError):
         super().__init__(message)
 
 
-class ProviderStreamCancelled(asyncio.CancelledError):
+class ProviderStreamCancelled(RuntimeError):
     def __init__(self, result: StreamResult):
         self.result = result
         super().__init__("provider stream was cancelled")
