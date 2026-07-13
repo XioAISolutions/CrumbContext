@@ -1,6 +1,12 @@
 name: Workload suite
 
 on:
+  push:
+    branches:
+      - claude/repo-improvements-fable-mythos-rjp798
+    paths:
+      - scripts/fable-cli-fix-trigger.txt
+      - .github/workflows/workloads.yml
   pull_request:
     paths:
       - crumbcontext/cli.py
@@ -13,7 +19,7 @@ permissions:
 
 jobs:
   apply-cli-fix:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
