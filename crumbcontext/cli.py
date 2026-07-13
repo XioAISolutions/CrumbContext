@@ -142,7 +142,7 @@ def cmd_benchmark(args) -> int:
 def cmd_workloads(args) -> int:
     out = Path(args.out)
     suite = run_workload_suite(
-        out,
+        output_dir=out,
         manifest_path=args.manifest,
         profiles=args.profiles,
     )
@@ -178,6 +178,13 @@ def _provider_options(args) -> dict:
         "enable_cache": not args.no_cache,
         "api_url": args.api_url,
     }
+    if provider == "anthropic":
+        common.update(
+            {
+                "cache_ttl": args.cache_ttl,
+                "enable_fallback": not args.no_fallback,
+            }
+        )
     if provider == "openai":
         common.update(
             {
@@ -298,8 +305,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--profiles",
         nargs="+",
         choices=available_profiles(),
-        default=list(available_profiles()),
-        help="Routing profiles to evaluate; defaults to all named profiles",
+        default=None,
+        help="Routing profiles to evaluate; defaults to the bundled public profile matrix",
     )
     workloads.add_argument(
         "--open",
@@ -329,13 +336,24 @@ def build_parser() -> argparse.ArgumentParser:
             "the adapter's documented default"
         ),
     )
-    counterfactual.add_argument("--max-tokens", type=int, default=1024)
+    counterfactual.add_argument("--max-tokens", type=int, default=4096)
     counterfactual.add_argument("--timeout", type=float, default=120.0)
     counterfactual.add_argument("--api-url", help=argparse.SUPPRESS)
     counterfactual.add_argument(
         "--no-cache",
         action="store_true",
         help="Disable CrumbContext provider cache hints and breakpoints",
+    )
+    counterfactual.add_argument(
+        "--cache-ttl",
+        choices=("5m", "1h"),
+        default="5m",
+        help="Anthropic cache breakpoint TTL",
+    )
+    counterfactual.add_argument(
+        "--no-fallback",
+        action="store_true",
+        help="Disable Anthropic Fable 5 server-side refusal fallback",
     )
     counterfactual.add_argument(
         "--prompt-cache-key",

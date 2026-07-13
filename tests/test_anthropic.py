@@ -22,7 +22,7 @@ def test_anthropic_payload_preserves_system_and_message_roles():
     )
     payload = build_anthropic_payload(
         request,
-        model="claude-sonnet-4-6",
+        model="claude-fable-5",
         max_tokens=400,
         artifact_root=None,
         enable_cache=True,
@@ -65,7 +65,7 @@ def test_anthropic_payload_uses_image_sidecar_and_cache(tmp_path: Path):
     )
     payload = build_anthropic_payload(
         request,
-        model="claude-sonnet-4-6",
+        model="claude-fable-5",
         max_tokens=400,
         artifact_root=tmp_path,
         enable_cache=True,
@@ -95,7 +95,7 @@ def test_anthropic_image_for_assistant_fails_closed_to_text():
     )
     payload = build_anthropic_payload(
         request,
-        model="claude-sonnet-4-6",
+        model="claude-fable-5",
         max_tokens=100,
         artifact_root=None,
         enable_cache=False,
@@ -110,7 +110,7 @@ def test_anthropic_provider_reports_total_input_and_request_id():
     def transport(url, headers, body, timeout):
         captured.update(url=url, headers=headers, body=json.loads(body), timeout=timeout)
         response = {
-            "model": "claude-sonnet-4-6",
+            "model": "claude-fable-5",
             "content": [{"type": "text", "text": '{"ok":true}'}],
             "stop_reason": "end_turn",
             "usage": {
@@ -135,7 +135,7 @@ def test_anthropic_provider_reports_total_input_and_request_id():
     assert response.usage_kind == "anthropic_provider_reported"
     assert response.raw_usage["request_id"] == "req_test"
     assert captured["headers"]["x-api-key"] == "test-key"
-    assert captured["body"]["model"] == "claude-sonnet-4-6"
+    assert captured["body"]["model"] == "claude-fable-5"
 
 
 def test_anthropic_provider_error_is_clear_and_does_not_leak_key():
@@ -200,7 +200,7 @@ def test_anthropic_counterfactual_uses_same_task_and_provider_usage(tmp_path: Pa
             "output_tokens": 80,
         }
         response = {
-            "model": "claude-sonnet-4-6",
+            "model": "claude-fable-5",
             "content": [{"type": "text", "text": result_text}],
             "stop_reason": "end_turn",
             "usage": usage,
@@ -209,7 +209,7 @@ def test_anthropic_counterfactual_uses_same_task_and_provider_usage(tmp_path: Pa
 
     provider = AnthropicProvider(
         api_key="test-key",
-        model="claude-sonnet-4-6",
+        model="claude-fable-5",
         artifact_root=tmp_path / "routed-artifacts",
         transport=transport,
     )

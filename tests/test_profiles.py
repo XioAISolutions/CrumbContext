@@ -38,6 +38,7 @@ def test_expected_profiles_are_available_and_deterministic():
         "safe-default",
         "text-only",
         "cache-heavy",
+        "frontier-vision",
         "strict-exact",
     )
     first = resolve_profile("text-only")

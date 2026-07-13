@@ -53,6 +53,16 @@ Prefers provider caching earlier for reusable reference, documentation, memory, 
 
 This profile does not guarantee a cache hit. Provider caching depends on provider rules, request stability, model support, and account behavior. Reports use provider cache accounting only when the provider returns it.
 
+### `frontier-vision`
+
+Keeps the normal safety policy while rendering eligible historical image context at 2576×1196 with a 24,000-character page target. This profile targets Claude Fable 5, Claude Mythos 5, Claude Opus 4.7+, and Claude Sonnet 5.
+
+`safe-default` remains at 1568×728 so it works across standard-resolution models. The larger profile changes image density and visual-token estimates only; exact-value sidecars and authority boundaries are unchanged.
+
+```bash
+crumbcontext analyze examples/transcript.json --profile frontier-vision
+```
+
 ### `strict-exact`
 
 Keeps every practical block in native text. It is intended for:

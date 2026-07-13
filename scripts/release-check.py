@@ -128,6 +128,9 @@ def check_release(tag: str | None = None) -> str:
         (
             "--provider anthropic",
             "--provider openai",
+            "claude-fable-5",
+            "--cache-ttl",
+            "--no-fallback",
             "docs/ANTHROPIC.md",
             "docs/OPENAI.md",
             "store: false",
@@ -313,6 +316,7 @@ def check_release(tag: str | None = None) -> str:
             '"safe-default"',
             '"text-only"',
             '"cache-heavy"',
+            '"frontier-vision"',
             '"strict-exact"',
             "validate_router_config",
             "unknown routing profile",

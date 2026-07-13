@@ -5,7 +5,13 @@ import os
 from pathlib import Path
 from typing import Any, AsyncIterator
 
-from .anthropic import build_anthropic_payload
+from .anthropic import (
+    ANTHROPIC_VERSION,
+    DEFAULT_ANTHROPIC_MODEL,
+    SERVER_SIDE_FALLBACK_BETA,
+    anthropic_user_agent,
+    build_anthropic_payload,
+)
 from .async_base import StreamEvent
 from .base import ProviderRequest
 from .openai import build_openai_payload
@@ -98,16 +104,32 @@ def _anthropic_event(message: SSEMessage) -> StreamEvent | None:
         delta = delta if isinstance(delta, dict) else {}
         usage = value.get("usage")
         usage = usage if isinstance(usage, dict) else {}
+        stop_reason = (
+            str(delta.get("stop_reason"))
+            if delta.get("stop_reason") is not None
+            else None
+        )
+        stop_details = delta.get("stop_details")
+        stop_details = stop_details if isinstance(stop_details, dict) else {}
+        raw_usage = dict(usage)
+        if stop_details:
+            raw_usage["stop_details"] = dict(stop_details)
+        error = None
+        if stop_reason == "refusal":
+            details = []
+            if stop_details.get("category"):
+                details.append(f"category={stop_details['category']}")
+            if stop_details.get("explanation"):
+                details.append(str(stop_details["explanation"]))
+            suffix = f" ({'; '.join(details)})" if details else ""
+            error = f"Anthropic refused the streamed request{suffix}"
         return StreamEvent(
             provider="anthropic",
             event_type=event_type,
             output_tokens=_usage_int(usage.get("output_tokens")),
-            stop_reason=(
-                str(delta.get("stop_reason"))
-                if delta.get("stop_reason") is not None
-                else None
-            ),
-            raw_usage=dict(usage),
+            stop_reason=stop_reason,
+            error=error,
+            raw_usage=raw_usage,
             raw=value,
         )
 
@@ -260,16 +282,21 @@ class AnthropicStreamingProvider:
     def __init__(
         self,
         *,
-        model: str,
+        model: str | None = None,
         api_key: str | None = None,
         artifact_root: str | Path = ".",
-        max_tokens: int = 1024,
+        max_tokens: int = 4096,
         timeout_seconds: float = 120.0,
         enable_cache: bool = True,
+        cache_ttl: str = "5m",
+        enable_fallback: bool = True,
         api_url: str = ANTHROPIC_MESSAGES_URL,
         event_source: AsyncSSESource = urllib_sse_source,
     ) -> None:
-        self.model = _required_text(model, "Anthropic model")
+        self.model = _required_text(
+            model or os.environ.get("ANTHROPIC_MODEL") or DEFAULT_ANTHROPIC_MODEL,
+            "Anthropic model",
+        )
         self.api_key = _required_text(
             api_key or os.environ.get("ANTHROPIC_API_KEY"),
             "ANTHROPIC_API_KEY",
@@ -278,6 +305,8 @@ class AnthropicStreamingProvider:
         self.max_tokens = max_tokens
         self.timeout_seconds = timeout_seconds
         self.enable_cache = enable_cache
+        self.cache_ttl = cache_ttl
+        self.enable_fallback = enable_fallback
         self.api_url = _required_text(api_url, "Anthropic API URL")
         self.event_source = event_source
         if max_tokens < 1:
@@ -292,14 +321,19 @@ class AnthropicStreamingProvider:
             max_tokens=self.max_tokens,
             artifact_root=self.artifact_root,
             enable_cache=self.enable_cache,
+            cache_ttl=self.cache_ttl,
+            enable_fallback=self.enable_fallback,
         )
         payload["stream"] = True
         headers = {
             "accept": "text/event-stream",
             "content-type": "application/json",
             "x-api-key": self.api_key,
-            "anthropic-version": "2023-06-01",
+            "anthropic-version": ANTHROPIC_VERSION,
+            "user-agent": anthropic_user_agent(),
         }
+        if "fallbacks" in payload:
+            headers["anthropic-beta"] = SERVER_SIDE_FALLBACK_BETA
         chunks = self.event_source(
             self.api_url,
             headers,

@@ -8,7 +8,7 @@ The next phase is not “more compression.” It is stronger evidence, easier in
 
 ### 1. Provider-measured evidence suite — external setup pending
 
-- Run the bundled public fixture against at least one exact Anthropic model identifier and one exact OpenAI model identifier.
+- Run the bundled public fixture against `claude-fable-5` and the existing OpenAI target `gpt-5.6`.
 - Publish baseline and routed request hashes, provider usage, latency, exact recall, task completion, and response similarity.
 - Keep results fixture-specific; never turn one measurement into a universal savings claim.
 - Status: guarded workflows and validators are complete; issues #18 and #19 remain blocked on approved provider keys and budget.
