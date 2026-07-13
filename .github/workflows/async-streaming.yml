@@ -1,0 +1,96 @@
+name: Async streaming API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - crumbcontext/async_api.py
+      - crumbcontext/providers/async_*.py
+      - crumbcontext/providers/sse.py
+      - crumbcontext/providers/streaming_adapters.py
+      - examples/python/run_async_provider.py
+      - examples/python/stream_mock_provider.py
+      - docs/ASYNC_STREAMING.md
+      - tests/test_async_streaming.py
+      - .github/workflows/async-streaming.yml
+  pull_request:
+    paths:
+      - crumbcontext/async_api.py
+      - crumbcontext/providers/async_*.py
+      - crumbcontext/providers/sse.py
+      - crumbcontext/providers/streaming_adapters.py
+      - examples/python/run_async_provider.py
+      - examples/python/stream_mock_provider.py
+      - docs/ASYNC_STREAMING.md
+      - tests/test_async_streaming.py
+      - .github/workflows/async-streaming.yml
+
+permissions:
+  contents: read
+
+jobs:
+  installed-async-api:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Build and install the wheel
+        run: |
+          python -m pip install --upgrade build
+          python -m build --wheel --outdir /tmp/crumbcontext-wheel
+          python -m pip install /tmp/crumbcontext-wheel/*.whl
+      - name: Verify the installed async surface outside the source tree
+        run: |
+          cd /tmp
+          python - <<'PY'
+          import crumbcontext.async_api as api
+
+          required = {
+              "AnthropicStreamingProvider",
+              "MockStreamingProvider",
+              "OpenAIStreamingProvider",
+              "ProviderStreamCancelled",
+              "ProviderStreamError",
+              "StreamEvent",
+              "StreamResult",
+              "collect_stream",
+              "decode_sse",
+              "execute_named_provider_async",
+              "execute_provider_stream",
+          }
+          assert required <= set(api.__all__)
+          for name in api.__all__:
+              assert hasattr(api, name)
+          PY
+      - name: Run keyless async examples against the installed wheel
+        env:
+          WORKSPACE: ${{ github.workspace }}
+        run: |
+          cd /tmp
+          python "$WORKSPACE/examples/python/run_async_provider.py" > /tmp/async-response.json
+          python "$WORKSPACE/examples/python/stream_mock_provider.py" > /tmp/stream-response.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          async_response = json.loads(Path('/tmp/async-response.json').read_text())
+          stream_response = json.loads(Path('/tmp/stream-response.json').read_text())
+          assert async_response['provider'] == 'mock'
+          assert stream_response['provider'] == 'mock'
+          assert stream_response['complete'] is True
+          assert stream_response['cancelled'] is False
+          assert stream_response['timed_out'] is False
+          assert len(stream_response['text_sha256']) == 64
+          assert stream_response['events']
+          PY
+      - name: Run async and streaming contract tests
+        run: |
+          python -m pip install pytest
+          cd "$GITHUB_WORKSPACE"
+          pytest tests/test_async_streaming.py
