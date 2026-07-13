@@ -23,6 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       migration_status: ${{ steps.migrate.outputs.status }}
+      commit_status: ${{ steps.commit.outputs.status }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -117,25 +118,44 @@ jobs:
           assert config['image_page_chars'] == 24000
           assert profile == 'frontier-vision'
           PY
-      - name: Commit permanent implementation
+      - name: Capture permanent implementation commit
+        id: commit
         if: steps.migrate.outputs.status == '0'
         run: |
-          rm -f scripts/.apply_fable_mythos.py
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            README.md ROADMAP.md CHANGELOG.md \
-            docs/ANTHROPIC.md docs/ROUTING_PROFILES.md \
-            examples/python/build_anthropic_payload.py \
-            crumbcontext/__init__.py crumbcontext/cli.py crumbcontext/profiles.py \
-            crumbcontext/providers/anthropic.py \
-            crumbcontext/providers/streaming_adapters.py \
-            scripts/release-check.py \
-            tests/test_anthropic.py tests/test_async_streaming.py \
-            tests/test_cli_profiles.py tests/test_fable_mythos.py tests/test_profiles.py
-          git diff --cached --check
-          git commit -m "Add Claude Fable 5 and Mythos 5 support"
-          git push origin HEAD:claude/repo-improvements-fable-mythos-rjp798
+          set +e
+          {
+            rm -f scripts/.apply_fable_mythos.py
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add \
+              README.md ROADMAP.md CHANGELOG.md \
+              docs/ANTHROPIC.md docs/ROUTING_PROFILES.md \
+              examples/python/build_anthropic_payload.py \
+              crumbcontext/__init__.py crumbcontext/cli.py crumbcontext/profiles.py \
+              crumbcontext/providers/anthropic.py \
+              crumbcontext/providers/streaming_adapters.py \
+              scripts/release-check.py \
+              tests/test_anthropic.py tests/test_async_streaming.py \
+              tests/test_cli_profiles.py tests/test_fable_mythos.py tests/test_profiles.py
+            git status --short
+            git diff --cached --check
+            git commit -m "Add Claude Fable 5 and Mythos 5 support"
+            git push origin HEAD:claude/repo-improvements-fable-mythos-rjp798
+          } > /tmp/fable-commit.log 2>&1
+          status=$?
+          echo "$status" > /tmp/fable-commit.status
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Export commit diagnostic
+        if: steps.migrate.outputs.status == '0'
+        uses: actions/upload-artifact@v7
+        with:
+          name: fable-commit-${{ github.sha }}
+          path: |
+            /tmp/fable-commit.log
+            /tmp/fable-commit.status
+          if-no-files-found: error
+          retention-days: 3
 
   report:
     needs: apply
@@ -145,12 +165,24 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: fable-migration-${{ github.sha }}
-          path: diagnostic
+          path: migration
       - name: Print migration result
         run: |
-          log="$(find diagnostic -name fable-migration.log -type f -print -quit)"
-          status_file="$(find diagnostic -name fable-migration.status -type f -print -quit)"
+          log="$(find migration -name fable-migration.log -type f -print -quit)"
+          status_file="$(find migration -name fable-migration.status -type f -print -quit)"
           cat "$log"
           status="$(cat "$status_file")"
-          echo "exit status: $status"
+          echo "migration exit status: $status"
+          test "$status" = "0"
+      - uses: actions/download-artifact@v8
+        with:
+          name: fable-commit-${{ github.sha }}
+          path: commit
+      - name: Print commit result
+        run: |
+          log="$(find commit -name fable-commit.log -type f -print -quit)"
+          status_file="$(find commit -name fable-commit.status -type f -print -quit)"
+          cat "$log"
+          status="$(cat "$status_file")"
+          echo "commit exit status: $status"
           test "$status" = "0"
