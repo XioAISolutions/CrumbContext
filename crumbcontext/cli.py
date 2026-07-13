@@ -17,6 +17,7 @@ from .counterfactual import (
 from .demo import counterfactual_payload, write_counterfactual, write_demo
 from .profiles import ResolvedProfile, available_profiles, resolve_profile
 from .router import route_blocks
+from .workloads import run_workload_suite
 
 
 def _policy(args) -> ResolvedProfile:
@@ -138,6 +139,34 @@ def cmd_benchmark(args) -> int:
     return 0 if result.passed else 1
 
 
+def cmd_workloads(args) -> int:
+    out = Path(args.out)
+    suite = run_workload_suite(
+        out,
+        manifest_path=args.manifest,
+        profiles=args.profiles,
+    )
+    summary = suite["summary"]
+    status = "PASS" if suite["passed"] else "FAIL"
+    print(f"CrumbContext workload suite: {status}")
+    print(
+        f"Run matrix: {summary['passed_runs']}/{summary['runs']} passed "
+        f"({summary['workloads']} workloads x {summary['profiles']} profiles)"
+    )
+    print(
+        "Exact anchors: "
+        f"{summary['exact_anchors_preserved']}/"
+        f"{summary['exact_anchors_expected']} preserved"
+    )
+    print(f"Lane counts: {json.dumps(summary['lane_counts'], sort_keys=True)}")
+    print(f"Machine-readable result: {out / 'suite.json'}")
+    print(f"Interactive report: {out / 'report.html'}")
+    print(f"Share card: {out / 'share-card.svg'}")
+    print("Token reductions are planning estimates, not provider billing claims.")
+    _open_report(out / "report.html", args.open)
+    return 0 if suite["passed"] else 1
+
+
 def _provider_options(args) -> dict:
     provider = args.provider.strip().lower()
     if provider == "mock":
@@ -254,6 +283,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="Open the report in a browser",
     )
     benchmark.set_defaults(func=cmd_benchmark)
+
+    workloads = sub.add_parser(
+        "workloads",
+        help="Run the versioned public multi-workload routing suite",
+    )
+    workloads.add_argument(
+        "manifest",
+        nargs="?",
+        help="Optional workload manifest JSON; omit to use the bundled public suite",
+    )
+    workloads.add_argument("--out", default="crumbcontext-workloads")
+    workloads.add_argument(
+        "--profiles",
+        nargs="+",
+        choices=available_profiles(),
+        default=list(available_profiles()),
+        help="Routing profiles to evaluate; defaults to all named profiles",
+    )
+    workloads.add_argument(
+        "--open",
+        action="store_true",
+        help="Open the aggregate HTML report",
+    )
+    workloads.set_defaults(func=cmd_workloads)
 
     counterfactual = sub.add_parser(
         "counterfactual",

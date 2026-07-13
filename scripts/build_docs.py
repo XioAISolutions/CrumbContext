@@ -59,6 +59,13 @@ PAGES: tuple[Page, ...] = (
         "Use the supported provider-neutral Python API and native payload builders.",
     ),
     Page(
+        "Async and streaming API",
+        "docs/ASYNC_STREAMING.md",
+        "async-streaming",
+        "Build",
+        "Run providers without blocking and collect normalized streaming evidence.",
+    ),
+    Page(
         "Routing profiles and schemas",
         "docs/ROUTING_PROFILES.md",
         "routing-profiles",
@@ -78,6 +85,13 @@ PAGES: tuple[Page, ...] = (
         "counterfactual",
         "Evidence",
         "Run the same task against baseline and routed context under one evaluation contract.",
+    ),
+    Page(
+        "Public workload suite",
+        "docs/WORKLOADS.md",
+        "workloads",
+        "Evidence",
+        "Evaluate five public context shapes across four deterministic routing profiles.",
     ),
     Page(
         "Provider-measured benchmarks",

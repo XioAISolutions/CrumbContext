@@ -24,7 +24,16 @@
 - Added a responsive, searchable static documentation site generated directly from repository Markdown.
 - Added local search, mobile navigation, canonical metadata, sitemap, `robots.txt`, and a custom 404 page without analytics, CDNs, or third-party runtime scripts.
 - Added pull-request documentation previews, local-link and anchor validation, and least-privilege GitHub Pages deployment from Actions.
-- Updated package metadata to point future PyPI releases at the browsable GitHub Pages documentation URL.
+- Updated package metadata to point future PyPI releases at the configured GitHub Pages documentation URL.
+- Added a separate supported async API that runs existing providers without blocking the event loop.
+- Added normalized Anthropic Messages and OpenAI Responses streaming through Server-Sent Events without a mandatory async HTTP dependency.
+- Added deterministic mock streaming, explicit complete/incomplete/failed/timeout/cancelled states, partial-result evidence, and response-text redaction.
+- Added installed-wheel async imports, keyless examples, cancellation compatibility, and streaming contract tests across Python 3.10, 3.11, and 3.12.
+- Added a versioned CC0 public workload manifest covering coding, research, operations, tool-heavy, and mixed-authority sessions.
+- Added `crumbcontext workloads`, which evaluates five workloads across four named profiles and emits 20 inspectable deterministic results.
+- Added workload-manifest, individual-result, and suite-result schemas with fail-closed validation, provenance, licensing, and SHA-256 fixture identity.
+- Added aggregate JSON and HTML reports, per-run routing artifacts, a share card, five-lane coverage checks, and explicit planning-estimate claims boundaries.
+- Added installed-wheel workload-suite validation and evidence export across Python 3.10, 3.11, and 3.12 without provider keys or paid calls.
 
 ## 0.1.0 - 2026-07-12
 

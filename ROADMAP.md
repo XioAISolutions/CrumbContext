@@ -6,47 +6,60 @@ The next phase is not “more compression.” It is stronger evidence, easier in
 
 ## v0.2 — Measured and integrable
 
-### 1. Provider-measured evidence suite
+### 1. Provider-measured evidence suite — external setup pending
 
 - Run the bundled public fixture against at least one exact Anthropic model identifier and one exact OpenAI model identifier.
 - Publish baseline and routed request hashes, provider usage, latency, exact recall, task completion, and response similarity.
-- Add multiple public fixtures representing coding, research, operations, and tool-heavy agent sessions.
 - Keep results fixture-specific; never turn one measurement into a universal savings claim.
+- Status: guarded workflows and validators are complete; issues #18 and #19 remain blocked on approved provider keys and budget.
 
-### 2. Async and streaming provider execution
+### 2. Async and streaming provider execution — shipped on `main`
 
-- Add async provider interfaces without changing the synchronous API.
-- Capture streamed output safely and deterministically.
-- Preserve usage, stop reasons, request IDs, and cache accounting when providers report them after streaming completes.
-- Test cancellation, timeout, partial response, and retry behavior.
+- Separate supported `crumbcontext.async_api` surface without changing the synchronous API.
+- Normalized Anthropic Messages and OpenAI Responses SSE streams.
+- Deterministic mock streams and application-owned transport injection.
+- Complete, incomplete, failed, timed-out, cooperative-cancelled, and native-task-cancelled states.
+- Partial-result evidence, usage, stop reasons, response IDs, cache accounting, and text redaction.
+- Installed-wheel validation on Python 3.10, 3.11, and 3.12.
 
-### 3. Stable integration API
+### 3. Stable integration API — shipped on `main`
 
-- Define a small public Python API for routing blocks and building provider-ready requests.
-- Add typed examples for direct Anthropic and OpenAI SDK integration.
-- Keep framework-specific adapters thin and optional.
-- Avoid making CrumbContext depend on a single agent framework.
+- Small public Python API for normalized blocks, baseline/routed requests, provider execution, and native payload dictionaries.
+- Typed, keyless examples for Anthropic and OpenAI payload construction.
+- No dependency on a single provider SDK or agent framework.
+- Installed-wheel compatibility checks across supported Python versions.
 
-### 4. Policy profiles
+### 4. Policy profiles — shipped on `main`
 
-- Add named routing profiles such as `safe-default`, `text-only`, `cache-heavy`, and `strict-exact`.
-- Make every profile resolve to an explicit `RouterConfig` recorded in the plan.
-- Support project-local configuration without hidden global state.
-- Reject unknown or unsafe policy values.
+- Named `safe-default`, `text-only`, `cache-heavy`, and `strict-exact` policies.
+- Complete resolved `RouterConfig` recorded in every plan.
+- Explicit safe overrides without hidden global state.
+- Unknown and unsafe policy values fail closed.
 
-### 5. Evidence and privacy hardening
+### 5. Evidence and privacy hardening — shipped on `main`
 
-- Add artifact retention guidance and configurable response-body redaction.
-- Add a machine-readable evidence manifest for provider runs.
-- Add schema versioning for routing plans and counterfactual reports.
-- Add compatibility checks so old evidence remains readable after new releases.
+- Artifact-retention guidance and configurable response-body redaction.
+- Versioned routing, benchmark, counterfactual, provider, stream, workload, and suite schemas.
+- Legacy v0.1 document compatibility where schema markers were historically absent.
+- Unknown explicit schemas rejected rather than guessed.
+- Guarded provider evidence with credential-leak scanning.
 
-## v0.3 — Workload evaluation
+### 6. Public multi-workload routing suite — implemented in #31
 
-- Build a versioned public fixture corpus with licensing and provenance metadata.
+- Five synthetic CC0 fixtures representing coding, research, operations, tool-heavy, and mixed-authority sessions.
+- Four named routing profiles per workload for a 20-run matrix.
+- Exact-anchor, authority, recency, image-policy, strict-exact, deterministic-plan, artifact, and lane-coverage checks.
+- Manifest and expanded-fixture SHA-256 identity, per-run JSON, aggregate JSON/HTML, and share card.
+- Installed-wheel validation on Python 3.10, 3.11, and 3.12.
+- Claims remain deterministic planning estimates, not provider billing or model-quality evidence.
+
+## v0.3 — Workload and answer-quality evaluation
+
 - Add repeated-run variance reporting for non-deterministic providers.
 - Separate routing quality, answer quality, latency, and cost into independent measures.
-- Add regression thresholds that fail when exact recall or task completion falls.
+- Add task-specific answer-quality graders that do not weaken exact-value or authority checks.
+- Expand the public fixture corpus with licensing and provenance review.
+- Add regression thresholds that fail when exact recall, required-rule recall, or task completion falls.
 - Publish a provider-neutral benchmark protocol others can implement.
 
 ## Later, only with evidence
@@ -69,7 +82,8 @@ CrumbContext will not:
 - silently upload private transcripts;
 - store provider API keys;
 - hide routing decisions behind an opaque score;
-- publish provider-cost claims without reproducible evidence.
+- publish provider-cost claims without reproducible evidence;
+- present offline planning estimates as provider billing or model-quality proof.
 
 ## Definition of done
 
