@@ -81,4 +81,7 @@ testpaths = ["tests"]
 addopts = "-q"
 
 [tool.setuptools.package-data]
-"crumbcontext" = ["py.typed"]
+"crumbcontext" = [
+  "py.typed",
+  "fixtures/workloads/v1/*.json",
+]
