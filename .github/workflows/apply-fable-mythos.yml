@@ -7,6 +7,11 @@ on:
     paths:
       - scripts/fable-mythos-trigger.txt
       - .github/workflows/apply-fable-mythos.yml
+  pull_request:
+    paths:
+      - scripts/.fable_payload_*
+      - scripts/fable-mythos-trigger.txt
+      - .github/workflows/apply-fable-mythos.yml
   workflow_dispatch:
 
 permissions:
@@ -14,11 +19,12 @@ permissions:
 
 jobs:
   apply:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: claude/repo-improvements-fable-mythos-rjp798
+          ref: ${{ github.head_ref || 'claude/repo-improvements-fable-mythos-rjp798' }}
           fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
