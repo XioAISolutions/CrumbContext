@@ -1,0 +1,60 @@
+name: Release contract diagnostic
+
+on:
+  pull_request:
+    paths:
+      - scripts/release-check.py
+      - .github/workflows/release-contract-diagnostic.yml
+      - .github/workflows/docs.yml
+      - scripts/build_docs.py
+      - docs/**
+      - pyproject.toml
+      - README.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Capture release contract result
+        id: contract
+        shell: bash
+        run: |
+          set +e
+          python scripts/release-check.py > release-contract.log 2>&1
+          status=$?
+          echo "$status" > release-contract.status
+          cat release-contract.log
+          exit 0
+      - name: Upload release contract result
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-contract-diagnostic-${{ github.sha }}
+          path: |
+            release-contract.log
+            release-contract.status
+          if-no-files-found: error
+          retention-days: 3
+
+  report:
+    needs: contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-contract-diagnostic-${{ github.sha }}
+          path: diagnostic
+      - name: Print release contract result
+        run: |
+          echo "--- release contract ---"
+          cat diagnostic/release-contract.log
+          status="$(cat diagnostic/release-contract.status)"
+          echo "exit status: $status"
+          test "$status" = "0"
