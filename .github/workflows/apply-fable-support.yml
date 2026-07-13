@@ -40,7 +40,7 @@ jobs:
 
           comments = json.loads(Path('/tmp/pr-comments.json').read_text(encoding='utf-8'))
           pattern = re.compile(
-              r'<!-- FABLE_CHUNK (\d+)/(\d+) -->(.*?)<!-- FABLE_CHUNK_END -->',
+              r'<!-- FABLE64_CHUNK (\d+)/(\d+) -->(.*?)<!-- FABLE64_CHUNK_END -->',
               flags=re.DOTALL,
           )
           chunks: dict[int, str] = {}
@@ -64,7 +64,7 @@ jobs:
                   f'incomplete Fable/Mythos payload chunks: have={sorted(chunks)}, total={expected_total}'
               )
           encoded = ''.join(chunks[index] for index in range(1, expected_total + 1))
-          archive = lzma.decompress(base64.b85decode(encoded.encode('ascii')))
+          archive = lzma.decompress(base64.b64decode(encoded, validate=True))
           allowed = {
               'CHANGELOG.md',
               'README.md',
