@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any, AsyncIterator, Mapping
 
+from . import get_provider
 from .async_base import (
     AsyncProvider,
     StreamEvent,
@@ -13,7 +14,6 @@ from .async_base import (
 )
 from .base import Provider, ProviderRequest, ProviderResponse
 from .mock import MockProvider
-from .registry import get_provider
 from .streaming_adapters import AnthropicStreamingProvider, OpenAIStreamingProvider
 
 
