@@ -10,6 +10,9 @@ COUNTERFACTUAL_SPEC_SCHEMA = "crumbcontext.counterfactual-spec.v1"
 COUNTERFACTUAL_RESULT_SCHEMA = "crumbcontext.counterfactual-result.v1"
 PROVIDER_REQUEST_SCHEMA = "crumbcontext.provider-request.v1"
 PROVIDER_RESPONSE_SCHEMA = "crumbcontext.provider-response.v1"
+WORKLOAD_MANIFEST_SCHEMA = "crumbcontext.workload-manifest.v1"
+WORKLOAD_RESULT_SCHEMA = "crumbcontext.workload-result.v1"
+WORKLOAD_SUITE_RESULT_SCHEMA = "crumbcontext.workload-suite-result.v1"
 
 SUPPORTED_SCHEMAS = frozenset(
     {
@@ -19,6 +22,9 @@ SUPPORTED_SCHEMAS = frozenset(
         COUNTERFACTUAL_RESULT_SCHEMA,
         PROVIDER_REQUEST_SCHEMA,
         PROVIDER_RESPONSE_SCHEMA,
+        WORKLOAD_MANIFEST_SCHEMA,
+        WORKLOAD_RESULT_SCHEMA,
+        WORKLOAD_SUITE_RESULT_SCHEMA,
     }
 )
 
@@ -101,6 +107,9 @@ __all__ = [
     "ROUTE_PLAN_SCHEMA",
     "SUPPORTED_SCHEMAS",
     "SchemaError",
+    "WORKLOAD_MANIFEST_SCHEMA",
+    "WORKLOAD_RESULT_SCHEMA",
+    "WORKLOAD_SUITE_RESULT_SCHEMA",
     "load_json_document",
     "normalize_document",
     "require_schema",
