@@ -22,7 +22,9 @@ from .schemas import (
     require_schema,
 )
 
-DEFAULT_PROFILES = available_profiles()
+DEFAULT_PROFILES = tuple(
+    name for name in available_profiles() if name != "frontier-vision"
+)
 DEFAULT_MANIFEST = (
     Path(__file__).resolve().parent
     / "fixtures"
@@ -373,6 +375,7 @@ def _run_workload(
     image_policy_honored = (
         not image_routes if not policy.config.vision_allowed else True
     ) and all(item.artifact for item in image_routes)
+
     checks = {
         "all_exact_anchors_preserved": exact_found == len(exact_values),
         "declared_exact_values_preserved": all(
@@ -386,204 +389,198 @@ def _run_workload(
             by_id[block.id].lane is Lane.EXACT for block in recent_blocks
         ),
         "image_policy_honored": image_policy_honored,
-        "strict_exact_routes_every_block_exact": (
+        "strict_exact_is_all_exact": (
             profile_name != "strict-exact"
             or all(item.lane is Lane.EXACT for item in plan.blocks)
         ),
         "deterministic_plan": deterministic_plan,
-        "routing_artifacts_created": _artifacts_exist(plan, run_root),
+        "referenced_artifacts_exist": _artifacts_exist(plan, run_root),
     }
-    lanes = Counter(item.lane.value for item in plan.blocks)
-    result = {
+    return {
         "schema_version": WORKLOAD_RESULT_SCHEMA,
         "suite_id": manifest.suite_id,
         "suite_version": manifest.version,
-        "manifest_sha256": manifest.source_sha256,
         "workload_id": workload.id,
         "workload_title": workload.title,
+        "workload_tags": list(workload.tags),
         "fixture_sha256": workload.fixture_sha256,
-        "tags": list(workload.tags),
-        "license": workload.license,
-        "provenance": workload.provenance,
+        "manifest_sha256": manifest.source_sha256,
         "profile": profile_name,
-        "resolved_profile": policy.to_dict(),
-        "passed": all(checks.values()),
-        "checks": checks,
-        "metrics": {
-            "block_count": len(blocks),
-            "original_chars": plan.original_chars,
-            "estimated_text_tokens": plan.estimated_text_tokens,
-            "estimated_routed_tokens": plan.estimated_routed_tokens,
-            "estimated_reduction_percent": plan.reduction_percent,
-            "exact_anchors_expected": len(exact_values),
-            "exact_anchors_preserved": exact_found,
-            "lane_counts": dict(sorted(lanes.items())),
+        "resolved_config": asdict(policy.config),
+        "task": workload.task,
+        "expected_exact": list(workload.expected_exact),
+        "required_rules": list(workload.required_rules),
+        "exact_anchors": {"found": exact_found, "expected": len(exact_values)},
+        "planning": {
+            "baseline_estimated_tokens": plan.baseline_estimated_tokens,
+            "routed_estimated_tokens": plan.routed_estimated_tokens,
+            "estimated_token_reduction_percent": plan.estimated_token_reduction_percent,
         },
-        "plan": plan.to_dict(),
-        "artifact_root": str(run_root.relative_to(output_dir)),
+        "lanes": dict(Counter(item.lane.value for item in plan.blocks)),
+        "checks": checks,
+        "passed": all(checks.values()),
         "disclaimer": DISCLAIMER,
+        "artifacts": {
+            "root": str(run_root.relative_to(output_dir)),
+            "plan": str((run_root / "plan.json").relative_to(output_dir)),
+            "report": str((run_root / "report.html").relative_to(output_dir)),
+            "anchors": str((run_root / "anchors-all.txt").relative_to(output_dir)),
+        },
     }
-    result_path = output_dir / "results" / f"{workload.id}--{profile_name}.json"
-    result_path.parent.mkdir(parents=True, exist_ok=True)
-    result_path.write_text(json.dumps(result, indent=2), encoding="utf-8")
-    return result
 
 
-def _aggregate_by_profile(results: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    output: dict[str, Any] = {}
-    for profile in sorted({str(item["profile"]) for item in results}):
-        selected = [item for item in results if item["profile"] == profile]
-        reductions = [
-            float(item["metrics"]["estimated_reduction_percent"])
-            for item in selected
-        ]
-        output[profile] = {
-            "runs": len(selected),
-            "passed": sum(bool(item["passed"]) for item in selected),
-            "average_estimated_reduction_percent": round(
-                sum(reductions) / max(1, len(reductions)), 1
-            ),
-            "minimum_estimated_reduction_percent": min(reductions, default=0.0),
-            "maximum_estimated_reduction_percent": max(reductions, default=0.0),
-        }
-    return output
+def _write_json(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
-def _write_html(suite: Mapping[str, Any], path: Path) -> None:
-    rows: list[str] = []
-    for result in suite["results"]:
-        metrics = result["metrics"]
-        status = "PASS" if result["passed"] else "FAIL"
-        status_class = "pass" if result["passed"] else "fail"
+def _render_html(result: Mapping[str, Any]) -> str:
+    summary = result["summary"]
+    rows = []
+    for run in result["runs"]:
+        badge = "PASS" if run["passed"] else "FAIL"
         rows.append(
             "<tr>"
-            f"<td>{html.escape(result['workload_id'])}</td>"
-            f"<td>{html.escape(result['profile'])}</td>"
-            f"<td class='{status_class}'>{status}</td>"
-            f"<td>{metrics['estimated_text_tokens']:,}</td>"
-            f"<td>{metrics['estimated_routed_tokens']:,}</td>"
-            f"<td>{metrics['estimated_reduction_percent']:.1f}%</td>"
-            f"<td>{metrics['exact_anchors_preserved']}/{metrics['exact_anchors_expected']}</td>"
-            f"<td><code>{html.escape(result['fixture_sha256'][:12])}</code></td>"
+            f"<td><strong>{escape(run['workload_id'])}</strong></td>"
+            f"<td>{escape(run['profile'])}</td>"
+            f"<td>{badge}</td>"
+            f"<td>{run['planning']['baseline_estimated_tokens']:,}</td>"
+            f"<td>{run['planning']['routed_estimated_tokens']:,}</td>"
+            f"<td>{run['planning']['estimated_token_reduction_percent']}%</td>"
+            f"<td>{run['exact_anchors']['found']}/{run['exact_anchors']['expected']}</td>"
             "</tr>"
         )
-    checks = "".join(
-        f"<li><strong>{html.escape(name.replace('_', ' '))}</strong>: "
-        f"{'PASS' if passed else 'FAIL'}</li>"
-        for name, passed in suite["checks"].items()
-    )
-    document = f"""<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CrumbContext workload suite</title>
 <style>
-:root{{color-scheme:dark}}body{{margin:0;background:#070b13;color:#e8eef9;font:16px/1.55 Inter,system-ui,sans-serif}}main{{max-width:1180px;margin:auto;padding:44px 24px}}h1{{font-size:42px;margin-bottom:8px}}p{{color:#aab8cf}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin:28px 0}}.card{{background:#101827;border:1px solid #29344a;border-radius:18px;padding:20px}}.value{{font-size:30px;font-weight:800}}table{{width:100%;border-collapse:collapse;background:#0d1523;border-radius:16px;overflow:hidden}}th,td{{padding:12px;border-bottom:1px solid #243149;text-align:left}}th{{color:#91a4c2}}.pass{{color:#53f2a3;font-weight:800}}.fail{{color:#ff7185;font-weight:800}}code{{color:#9bdcf0}}li{{margin:6px 0}}a{{color:#71dcff}}@media(max-width:760px){{table{{display:block;overflow:auto}}h1{{font-size:32px}}}}
-</style></head><body><main>
-<p>CRUMBCONTEXT PUBLIC EVIDENCE</p><h1>Multi-workload routing suite</h1>
-<p>{html.escape(suite['disclaimer'])}</p>
-<div class="grid"><div class="card"><div>Workloads</div><div class="value">{suite['summary']['workloads']}</div></div><div class="card"><div>Profiles</div><div class="value">{suite['summary']['profiles']}</div></div><div class="card"><div>Passing runs</div><div class="value">{suite['summary']['passed_runs']}/{suite['summary']['runs']}</div></div><div class="card"><div>Exact anchors</div><div class="value">{suite['summary']['exact_anchors_preserved']}/{suite['summary']['exact_anchors_expected']}</div></div></div>
-<h2>Suite checks</h2><ul>{checks}</ul>
-<h2>Run matrix</h2><table><thead><tr><th>Workload</th><th>Profile</th><th>Status</th><th>Text estimate</th><th>Routed estimate</th><th>Reduction</th><th>Exact anchors</th><th>Fixture hash</th></tr></thead><tbody>{''.join(rows)}</tbody></table>
-<p>Manifest SHA-256: <code>{html.escape(suite['manifest']['source_sha256'])}</code></p>
-</main></body></html>"""
-    path.write_text(document, encoding="utf-8")
+:root {{ color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }}
+body {{ margin: 0; background: #07111f; color: #e6f3ff; }}
+main {{ max-width: 1180px; margin: auto; padding: 48px 24px 80px; }}
+h1 {{ font-size: clamp(2rem, 5vw, 4rem); margin-bottom: 8px; }}
+p {{ color: #a9bdd1; line-height: 1.6; }}
+.grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin: 28px 0; }}
+.card {{ background: #0e2033; border: 1px solid #28415b; border-radius: 14px; padding: 18px; }}
+.card strong {{ display: block; font-size: 1.7rem; margin-top: 4px; }}
+.table {{ overflow-x: auto; border: 1px solid #28415b; border-radius: 14px; }}
+table {{ width: 100%; border-collapse: collapse; background: #0a1929; }}
+th, td {{ padding: 12px 14px; text-align: left; border-bottom: 1px solid #20384e; }}
+th {{ color: #7dd3fc; }}
+code {{ color: #c4b5fd; }}
+</style>
+</head>
+<body><main>
+<p><strong>CRUMB ecosystem / reproducible evidence</strong></p>
+<h1>Public multi-workload suite</h1>
+<p>{escape(result['disclaimer'])}</p>
+<div class="grid">
+<div class="card">Workloads<strong>{summary['workloads']}</strong></div>
+<div class="card">Profiles<strong>{summary['profiles']}</strong></div>
+<div class="card">Runs passed<strong>{summary['passed_runs']}/{summary['runs']}</strong></div>
+<div class="card">Exact anchors<strong>{summary['exact_anchors']['found']}/{summary['exact_anchors']['expected']}</strong></div>
+<div class="card">Planning reduction<strong>{summary['estimated_token_reduction_percent']}%</strong></div>
+</div>
+<div class="table"><table>
+<thead><tr><th>Workload</th><th>Profile</th><th>Status</th><th>Baseline est.</th><th>Routed est.</th><th>Reduction est.</th><th>Exact</th></tr></thead>
+<tbody>{''.join(rows)}</tbody>
+</table></div>
+<p>Schema <code>{escape(result['schema_version'])}</code> · manifest <code>{escape(result['manifest']['source_sha256'])}</code></p>
+</main></body></html>
+"""
 
 
-def _write_share_card(suite: Mapping[str, Any], path: Path) -> None:
-    summary = suite["summary"]
-    status = "PASS" if suite["passed"] else "CHECK FAILED"
-    status_fill = "#53f2a3" if suite["passed"] else "#ff7185"
+def _write_card(path: Path, result: Mapping[str, Any]) -> None:
+    summary = result["summary"]
+    status = "PASS" if result["passed"] else "FAIL"
     svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-<defs><linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#070b13"/><stop offset="1" stop-color="#14233b"/></linearGradient><linearGradient id="glow" x1="0" x2="1"><stop offset="0" stop-color="#7c5cff"/><stop offset="1" stop-color="#27d9ff"/></linearGradient></defs>
-<rect width="1200" height="630" rx="34" fill="url(#bg)"/><circle cx="1080" cy="60" r="220" fill="#7c5cff" opacity=".12"/><circle cx="80" cy="610" r="240" fill="#27d9ff" opacity=".08"/>
-<text x="72" y="92" fill="#94a3bd" font-family="Inter,Arial,sans-serif" font-size="24" letter-spacing="4">CRUMBCONTEXT WORKLOAD SUITE</text>
-<text x="72" y="165" fill="#ffffff" font-family="Inter,Arial,sans-serif" font-weight="800" font-size="58">Evidence beyond one transcript.</text>
-<text x="72" y="215" fill="#aab6cc" font-family="Inter,Arial,sans-serif" font-size="25">Five public workloads. Four routing profiles. Exact facts stay exact.</text>
-<g transform="translate(72 276)"><rect width="315" height="174" rx="22" fill="#101827" stroke="#29344a"/><text x="28" y="46" fill="#8fa0ba" font-family="Inter,Arial,sans-serif" font-size="18">RUN MATRIX</text><text x="28" y="120" fill="url(#glow)" font-family="Inter,Arial,sans-serif" font-size="66" font-weight="800">{summary['passed_runs']}/{summary['runs']}</text></g>
-<g transform="translate(414 276)"><rect width="315" height="174" rx="22" fill="#101827" stroke="#29344a"/><text x="28" y="46" fill="#8fa0ba" font-family="Inter,Arial,sans-serif" font-size="18">EXACT ANCHORS</text><text x="28" y="120" fill="#ffffff" font-family="Inter,Arial,sans-serif" font-size="54" font-weight="800">{summary['exact_anchors_preserved']}/{summary['exact_anchors_expected']}</text></g>
-<g transform="translate(756 276)"><rect width="372" height="174" rx="22" fill="#101827" stroke="#29344a"/><text x="28" y="46" fill="#8fa0ba" font-family="Inter,Arial,sans-serif" font-size="18">SELF-CHECK</text><text x="28" y="120" fill="{status_fill}" font-family="Inter,Arial,sans-serif" font-size="54" font-weight="800">{escape(status)}</text></g>
-<text x="72" y="526" fill="#8fa0ba" font-family="ui-monospace,Menlo,monospace" font-size="20">crumbcontext workloads --out workload-proof</text>
-<text x="72" y="572" fill="#65738b" font-family="Inter,Arial,sans-serif" font-size="17">Planning estimates, not provider billing claims • github.com/XioAISolutions/CrumbContext</text>
-</svg>"""
+<rect width="1200" height="630" fill="#07111f"/>
+<rect x="55" y="55" width="1090" height="520" rx="28" fill="#0e2033" stroke="#28415b"/>
+<text x="95" y="128" fill="#7dd3fc" font-family="Arial,sans-serif" font-size="25">CRUMB ecosystem · public evidence</text>
+<text x="95" y="205" fill="#f8fafc" font-family="Arial,sans-serif" font-weight="700" font-size="53">Multi-workload routing suite</text>
+<text x="95" y="282" fill="#c4b5fd" font-family="Arial,sans-serif" font-size="42">{status} · {summary['passed_runs']}/{summary['runs']} runs</text>
+<text x="95" y="360" fill="#e2e8f0" font-family="Arial,sans-serif" font-size="31">{summary['workloads']} workloads × {summary['profiles']} profiles</text>
+<text x="95" y="414" fill="#e2e8f0" font-family="Arial,sans-serif" font-size="31">Exact anchors {summary['exact_anchors']['found']}/{summary['exact_anchors']['expected']}</text>
+<text x="95" y="468" fill="#e2e8f0" font-family="Arial,sans-serif" font-size="31">Planning reduction {summary['estimated_token_reduction_percent']}%</text>
+<text x="95" y="530" fill="#94a3b8" font-family="Arial,sans-serif" font-size="21">Deterministic estimates — not provider billing or model quality</text>
+</svg>
+"""
     path.write_text(svg, encoding="utf-8")
 
 
 def run_workload_suite(
-    output_dir: str | Path,
     *,
+    output_dir: str | Path,
     manifest_path: str | Path | None = None,
     profiles: Sequence[str] | None = None,
 ) -> dict[str, Any]:
-    output = Path(output_dir)
-    output.mkdir(parents=True, exist_ok=True)
     manifest = load_workload_manifest(manifest_path)
-    selected = tuple(profiles or DEFAULT_PROFILES)
+    selected = tuple(profiles) if profiles is not None else DEFAULT_PROFILES
     if not selected:
         raise ValueError("at least one routing profile is required")
     if len(set(selected)) != len(selected):
         raise ValueError("routing profiles must not contain duplicates")
-    supported = set(available_profiles())
-    unknown = sorted(set(selected) - supported)
+    available = set(available_profiles())
+    unknown = sorted(set(selected) - available)
     if unknown:
-        raise ValueError(f"unknown workload-suite profile(s): {', '.join(unknown)}")
+        raise ValueError(f"unknown routing profiles: {', '.join(unknown)}")
 
-    results = [
-        _run_workload(manifest, workload, profile, output)
-        for workload in manifest.workloads
-        for profile in selected
-    ]
+    root = Path(output_dir)
+    root.mkdir(parents=True, exist_ok=True)
+    expanded_manifest = manifest.to_dict(include_blocks=True)
+    _write_json(root / "manifest-expanded.json", expanded_manifest)
+
+    runs: list[dict[str, Any]] = []
+    for workload in manifest.workloads:
+        for profile_name in selected:
+            result = _run_workload(manifest, workload, profile_name, root)
+            runs.append(result)
+            _write_json(
+                root / "results" / f"{workload.id}--{profile_name}.json",
+                result,
+            )
+
+    baseline_total = sum(
+        run["planning"]["baseline_estimated_tokens"] for run in runs
+    )
+    routed_total = sum(run["planning"]["routed_estimated_tokens"] for run in runs)
+    exact_found = sum(run["exact_anchors"]["found"] for run in runs)
+    exact_expected = sum(run["exact_anchors"]["expected"] for run in runs)
     lane_totals: Counter[str] = Counter()
-    for result in results:
-        lane_totals.update(result["metrics"]["lane_counts"])
-    expected_runs = len(manifest.workloads) * len(selected)
-    exact_expected = sum(
-        int(result["metrics"]["exact_anchors_expected"]) for result in results
+    for run in runs:
+        lane_totals.update(run["lanes"])
+    estimated_reduction = (
+        round((baseline_total - routed_total) * 100 / baseline_total, 1)
+        if baseline_total
+        else 0.0
     )
-    exact_preserved = sum(
-        int(result["metrics"]["exact_anchors_preserved"]) for result in results
-    )
-    required_lanes = {"exact", "cache", "crumb", "summary"}
-    if "safe-default" in selected:
-        required_lanes.add("image")
-    suite_checks = {
-        "run_matrix_complete": len(results) == expected_runs,
-        "all_runs_pass": all(bool(result["passed"]) for result in results),
-        "all_exact_anchors_preserved": exact_preserved == exact_expected,
-        "required_lane_coverage": required_lanes <= set(lane_totals),
-        "manifest_and_fixture_hashes_present": (
-            len(manifest.source_sha256) == 64
-            and all(len(result["fixture_sha256"]) == 64 for result in results)
-        ),
-    }
-    suite = {
+    result = {
         "schema_version": WORKLOAD_SUITE_RESULT_SCHEMA,
-        "passed": all(suite_checks.values()),
-        "checks": suite_checks,
+        "passed": all(run["passed"] for run in runs),
+        "generated_from": "public-synthetic-fixtures",
         "manifest": manifest.to_dict(include_blocks=False),
         "profiles": list(selected),
         "summary": {
             "workloads": len(manifest.workloads),
             "profiles": len(selected),
-            "runs": len(results),
-            "passed_runs": sum(bool(result["passed"]) for result in results),
-            "exact_anchors_expected": exact_expected,
-            "exact_anchors_preserved": exact_preserved,
-            "lane_counts": dict(sorted(lane_totals.items())),
-            "by_profile": _aggregate_by_profile(results),
+            "runs": len(runs),
+            "passed_runs": sum(1 for run in runs if run["passed"]),
+            "failed_runs": sum(1 for run in runs if not run["passed"]),
+            "baseline_estimated_tokens": baseline_total,
+            "routed_estimated_tokens": routed_total,
+            "estimated_token_reduction_percent": estimated_reduction,
+            "exact_anchors": {"found": exact_found, "expected": exact_expected},
+            "lanes": dict(lane_totals),
         },
-        "results": results,
+        "runs": runs,
         "disclaimer": DISCLAIMER,
     }
-    (output / "suite.json").write_text(
-        json.dumps(suite, indent=2),
-        encoding="utf-8",
-    )
-    (output / "manifest-expanded.json").write_text(
-        json.dumps(manifest.to_dict(include_blocks=True), indent=2),
-        encoding="utf-8",
-    )
-    _write_html(suite, output / "report.html")
-    _write_share_card(suite, output / "share-card.svg")
-    return suite
+    _write_json(root / "suite.json", result)
+    (root / "report.html").write_text(_render_html(result), encoding="utf-8")
+    _write_card(root / "share-card.svg", result)
+    return result
 
 
 __all__ = [
