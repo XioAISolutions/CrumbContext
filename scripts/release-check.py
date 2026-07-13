@@ -281,8 +281,8 @@ def check_release(tag: str | None = None) -> str:
             "documentation pages may load only the local site.js asset",
             "sitemap.xml",
             ".nojekyll",
-            "docs/site-assets/site.css",
-            "docs/site-assets/site.js",
+            'ROOT / "docs" / "site-assets" / "site.css"',
+            'ROOT / "docs" / "site-assets" / "site.js"',
         ),
         "documentation builder",
     )
