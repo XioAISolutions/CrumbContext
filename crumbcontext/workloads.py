@@ -6,6 +6,11 @@ from typing import Any, Sequence
 
 from . import _workloads_impl as _impl
 from .profiles import available_profiles
+from .schemas import (
+    WORKLOAD_MANIFEST_SCHEMA,
+    WORKLOAD_RESULT_SCHEMA,
+    WORKLOAD_SUITE_RESULT_SCHEMA,
+)
 
 DEFAULT_MANIFEST = _impl.DEFAULT_MANIFEST
 DEFAULT_PROFILES = _impl.DEFAULT_PROFILES
@@ -13,6 +18,13 @@ DISCLAIMER = _impl.DISCLAIMER
 WorkloadManifest = _impl.WorkloadManifest
 WorkloadSpec = _impl.WorkloadSpec
 load_workload_manifest = _impl.load_workload_manifest
+
+# These names are the stable v1 evidence contract enforced by release-check.py.
+WORKLOAD_RESULT_CHECKS = (
+    "all_exact_anchors_preserved",
+    "authority_blocks_stay_exact",
+    "deterministic_plan",
+)
 
 
 def _write_json(path: Path, value: Any) -> None:
@@ -139,6 +151,10 @@ __all__ = [
     "DEFAULT_MANIFEST",
     "DEFAULT_PROFILES",
     "DISCLAIMER",
+    "WORKLOAD_MANIFEST_SCHEMA",
+    "WORKLOAD_RESULT_SCHEMA",
+    "WORKLOAD_SUITE_RESULT_SCHEMA",
+    "WORKLOAD_RESULT_CHECKS",
     "WorkloadManifest",
     "WorkloadSpec",
     "load_workload_manifest",
