@@ -20,7 +20,7 @@ jobs:
         with:
           ref: ${{ github.head_ref || 'evidence/multi-workload-suite' }}
           fetch-depth: 0
-      - name: Extract and run the reviewed completion script
+      - name: Extract the reviewed completion script
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -34,16 +34,53 @@ jobs:
           script = "\n".join(line[10:] if line.startswith("          ") else line for line in lines) + "\n"
           Path('/tmp/complete_workload_surface.py').write_text(script, encoding='utf-8')
           PY
-          python /tmp/complete_workload_surface.py
+      - name: Capture completion result
+        id: completion
+        run: |
+          set +e
+          python /tmp/complete_workload_surface.py > /tmp/workload-surface.log 2>&1
+          status=$?
+          echo "$status" > /tmp/workload-surface.status
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload concise completion result
+        uses: actions/upload-artifact@v7
+        with:
+          name: workload-surface-diagnostic-${{ github.sha }}
+          path: |
+            /tmp/workload-surface.log
+            /tmp/workload-surface.status
+          if-no-files-found: error
+          retention-days: 3
       - name: Verify permanent project contracts
+        if: steps.completion.outputs.status == '0'
         run: |
           python scripts/release-check.py
           python scripts/build_docs.py --out /tmp/crumbcontext-docs --base-path /CrumbContext/ --site-url https://xioaisolutions.github.io
           pytest tests/test_docs_site.py tests/test_workloads.py
       - name: Commit permanent surface changes
+        if: steps.completion.outputs.status == '0'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add README.md scripts/build_docs.py scripts/release-check.py tests/test_docs_site.py .github/workflows/verify-pypi.yml
           git commit -m "Complete workload and async release surface"
           git push origin HEAD:evidence/multi-workload-suite
+
+  report:
+    needs: complete
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: workload-surface-diagnostic-${{ github.sha }}
+          path: diagnostic
+      - name: Print completion result
+        run: |
+          log="$(find diagnostic -name workload-surface.log -type f -print -quit)"
+          status_file="$(find diagnostic -name workload-surface.status -type f -print -quit)"
+          echo "--- workload surface completion ---"
+          cat "$log"
+          status="$(cat "$status_file")"
+          echo "exit status: $status"
+          test "$status" = "0"
