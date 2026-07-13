@@ -68,8 +68,10 @@ jobs:
           cd /tmp
           crumbcontext benchmark --out crumbcontext-pypi-proof
           crumbcontext counterfactual --provider mock --out crumbcontext-pypi-counterfactual
+          crumbcontext workloads --out crumbcontext-pypi-workloads
           python -c "import json; assert json.load(open('/tmp/crumbcontext-pypi-proof/benchmark.json'))['passed']"
           python -c "import json; assert json.load(open('/tmp/crumbcontext-pypi-counterfactual/counterfactual.json'))['passed']"
+          python -c "import json; s=json.load(open('/tmp/crumbcontext-pypi-workloads/suite.json')); assert s['passed'] and s['summary']['runs'] == 20"
       - name: Export independent installation proof
         uses: actions/upload-artifact@v7
         with:
@@ -77,5 +79,6 @@ jobs:
           path: |
             /tmp/crumbcontext-pypi-proof/
             /tmp/crumbcontext-pypi-counterfactual/
+            /tmp/crumbcontext-pypi-workloads/
           if-no-files-found: error
           retention-days: 30
