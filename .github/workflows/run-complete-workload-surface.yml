@@ -1,7 +1,9 @@
 name: Run complete workload surface
 
 on:
-  pull_request:
+  push:
+    branches:
+      - evidence/multi-workload-suite
     paths:
       - scripts/workload-surface-trigger.txt
       - .github/workflows/run-complete-workload-surface.yml
@@ -12,12 +14,11 @@ permissions:
 
 jobs:
   complete:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.head_ref || 'evidence/multi-workload-suite' }}
+          ref: evidence/multi-workload-suite
           fetch-depth: 0
       - name: Apply permanent surface edits
         run: |
@@ -39,7 +40,6 @@ jobs:
                   raise SystemExit(f"{path}: marker count for {old!r} was {count}")
               write(path, text.replace(old, new, 1))
 
-          # README navigation and public workload section.
           replace_once(
               "README.md",
               '  <a href="#30-second-proof"><strong>Run the proof</strong></a>\n',
@@ -73,8 +73,6 @@ Outputs include aggregate and per-run JSON, full routing bundles, an HTML report
 ''',
               '## 🌐 Public workload suite',
           )
-
-          # Searchable documentation pages.
           replace_once(
               "scripts/build_docs.py",
               '    Page(\n        "Routing profiles and schemas",',
@@ -103,8 +101,6 @@ Outputs include aggregate and per-run JSON, full routing bundles, an HTML report
         "Provider-measured benchmarks",''',
               '"docs/WORKLOADS.md"',
           )
-
-          # Documentation-site regression coverage.
           replace_once(
               "tests/test_docs_site.py",
               '    assert (output / "python-api" / "index.html").is_file()\n',
@@ -121,8 +117,6 @@ Outputs include aggregate and per-run JSON, full routing bundles, an HTML report
               '        "/CrumbContext/workloads/",\n',
               '"/CrumbContext/workloads/"',
           )
-
-          # Independent public-PyPI verification for future releases.
           replace_once(
               ".github/workflows/verify-pypi.yml",
               '          crumbcontext counterfactual --provider mock --out crumbcontext-pypi-counterfactual\n',
@@ -144,8 +138,6 @@ Outputs include aggregate and per-run JSON, full routing bundles, an HTML report
               '            /tmp/crumbcontext-pypi-workloads/\n',
               '/tmp/crumbcontext-pypi-workloads/',
           )
-
-          # Extend the release contract without restructuring existing checks.
           replace_once(
               "scripts/release-check.py",
               '            "Exact facts never depend on pixels.",\n',
@@ -195,7 +187,6 @@ Outputs include aggregate and per-run JSON, full routing bundles, an HTML report
               '            \'WORKLOAD_SUITE_RESULT_SCHEMA = "crumbcontext.workload-suite-result.v1"\',\n',
               'WORKLOAD_SUITE_RESULT_SCHEMA',
           )
-
           contract_block = '''    require_fragments(
         read(".github/workflows/async-streaming.yml"),
         (
