@@ -45,10 +45,10 @@ jobs:
               > /tmp/fable-migration.b64
             test "$(wc -c < /tmp/fable-migration.b64)" = "24068"
             echo "a0c7c8cb01bd9543c541f8407c18ada1fc9ea16ddeb44ed82eb91bb958549b42  /tmp/fable-migration.b64" | sha256sum -c -
-            base64 -d /tmp/fable-migration.b64 > /tmp/apply_fable_mythos.py
-            echo "55a7d866c45445de7eb8c3c824e1ae4fa3028acd4d51e062e6150b31e488eca4  /tmp/apply_fable_mythos.py" | sha256sum -c -
-            python -m py_compile /tmp/apply_fable_mythos.py
-            python /tmp/apply_fable_mythos.py
+            base64 -d /tmp/fable-migration.b64 > scripts/.apply_fable_mythos.py
+            echo "55a7d866c45445de7eb8c3c824e1ae4fa3028acd4d51e062e6150b31e488eca4  scripts/.apply_fable_mythos.py" | sha256sum -c -
+            python -m py_compile scripts/.apply_fable_mythos.py
+            python scripts/.apply_fable_mythos.py
           } > /tmp/fable-migration.log 2>&1
           status=$?
           echo "$status" > /tmp/fable-migration.status
@@ -120,6 +120,7 @@ jobs:
       - name: Commit permanent implementation
         if: steps.migrate.outputs.status == '0'
         run: |
+          rm -f scripts/.apply_fable_mythos.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
