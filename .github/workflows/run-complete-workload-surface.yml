@@ -1,11 +1,11 @@
 name: Run complete workload surface
 
 on:
-  push:
-    branches:
-      - evidence/multi-workload-suite
+  pull_request:
     paths:
       - scripts/workload-surface-trigger.txt
+      - .github/workflows/run-complete-workload-surface.yml
+      - .github/workflows/complete-workload-surface.yml
   workflow_dispatch:
 
 permissions:
@@ -13,11 +13,12 @@ permissions:
 
 jobs:
   complete:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: evidence/multi-workload-suite
+          ref: ${{ github.head_ref || 'evidence/multi-workload-suite' }}
           fetch-depth: 0
       - name: Extract and run the reviewed completion script
         run: |
