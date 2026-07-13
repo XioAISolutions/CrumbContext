@@ -103,7 +103,7 @@ def test_mock_stream_matches_sync_provider_and_reports_complete_usage():
     assert result.complete
     assert result.provider == "mock"
     assert result.text.startswith("{")
-    assert json.loads(result.text)["status"] == "ok"
+    assert json.loads(result.text)["task"] == "Return JSON with status and ID."
     assert result.input_tokens > 0
     assert result.output_tokens > 0
     assert result.stop_reason == "completed"
@@ -115,7 +115,7 @@ def test_existing_sync_provider_runs_without_blocking_async_api():
     response = asyncio.run(execute_named_provider_async(request(), "mock"))
     assert response.provider == "mock"
     assert response.input_tokens > 0
-    assert json.loads(response.text)["status"] == "ok"
+    assert json.loads(response.text)["task"] == "Return JSON with status and ID."
 
 
 def test_anthropic_stream_preserves_text_usage_cache_and_omits_thinking():

@@ -231,6 +231,9 @@ async def collect_stream(
         nonlocal input_tokens, output_tokens, model, response_id
         nonlocal stop_reason, complete, cancelled, error, text_snapshot
         async for event in iterator:
+            if cancel_event is not None and cancel_event.is_set():
+                cancelled = True
+                break
             if retain_events:
                 events.append(event)
             if event.text_delta:
@@ -253,9 +256,6 @@ async def collect_stream(
                 error = event.error
             if event.complete:
                 complete = True
-            if cancel_event is not None and cancel_event.is_set():
-                cancelled = True
-                break
 
     async def close_iterator() -> None:
         closer = getattr(iterator, "aclose", None)
