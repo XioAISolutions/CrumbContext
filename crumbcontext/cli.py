@@ -142,7 +142,7 @@ def cmd_benchmark(args) -> int:
 def cmd_workloads(args) -> int:
     out = Path(args.out)
     suite = run_workload_suite(
-        out,
+        output_dir=out,
         manifest_path=args.manifest,
         profiles=args.profiles,
     )
@@ -305,8 +305,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--profiles",
         nargs="+",
         choices=available_profiles(),
-        default=list(available_profiles()),
-        help="Routing profiles to evaluate; defaults to all named profiles",
+        default=None,
+        help="Routing profiles to evaluate; defaults to the bundled public profile matrix",
     )
     workloads.add_argument(
         "--open",
