@@ -1,0 +1,114 @@
+name: Documentation site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - README.md
+      - ROADMAP.md
+      - SECURITY.md
+      - CONTRIBUTING.md
+      - docs/**
+      - scripts/build_docs.py
+      - tests/test_docs_site.py
+      - pyproject.toml
+      - .github/workflows/docs.yml
+  pull_request:
+    paths:
+      - README.md
+      - ROADMAP.md
+      - SECURITY.md
+      - CONTRIBUTING.md
+      - docs/**
+      - scripts/build_docs.py
+      - tests/test_docs_site.py
+      - pyproject.toml
+      - .github/workflows/docs.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install documentation dependencies
+        run: python -m pip install -e '.[docs]' pytest
+      - name: Build and validate the static site
+        run: |
+          set -o pipefail
+          python scripts/build_docs.py \
+            --out _site \
+            --base-path /CrumbContext/ \
+            --site-url https://xioaisolutions.github.io \
+            2>&1 | tee /tmp/docs-build.log
+      - name: Run documentation-site tests
+        run: pytest tests/test_docs_site.py
+      - name: Export documentation failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: crumbcontext-docs-failure-${{ github.sha }}
+          path: |
+            /tmp/docs-build.log
+            _site/
+          if-no-files-found: warn
+          include-hidden-files: true
+          retention-days: 7
+      - name: Upload pull-request preview artifact
+        if: github.event_name == 'pull_request' && success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: crumbcontext-docs-preview-${{ github.sha }}
+          path: _site/
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 14
+      - name: Upload GitHub Pages artifact
+        if: github.event_name != 'pull_request' && success()
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site/
+          include-hidden-files: true
+          retention-days: 1
+
+  diagnose:
+    if: failure() && github.event_name == 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download documentation failure diagnostics
+        uses: actions/download-artifact@v8
+        with:
+          name: crumbcontext-docs-failure-${{ github.sha }}
+          path: diagnostics
+      - name: Print validator failure
+        run: |
+          echo "--- CrumbContext documentation validator ---"
+          log="$(find diagnostics -name docs-build.log -type f -print -quit)"
+          test -n "$log" || { echo "docs-build.log was not found" >&2; find diagnostics -maxdepth 4 -type f -print; exit 1; }
+          tail -n 80 "$log"
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy documentation to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

@@ -43,9 +43,11 @@ def check_release(tag: str | None = None) -> str:
     verify_pypi = read(".github/workflows/verify-pypi.yml")
     provider_benchmark = read(".github/workflows/provider-benchmark.yml")
     python_api_workflow = read(".github/workflows/python-api.yml")
+    docs_workflow = read(".github/workflows/docs.yml")
     release_request_example = read(".github/release-request.example.json")
     release_agent_script = read("scripts/release_agent.py")
     release_assets = read("scripts/release_assets.py")
+    docs_builder = read("scripts/build_docs.py")
     profiles = read("crumbcontext/profiles.py")
     schemas = read("crumbcontext/schemas.py")
     python_api = read("crumbcontext/api.py")
@@ -93,10 +95,14 @@ def check_release(tag: str | None = None) -> str:
         "docs/PYTHON_API.md",
         "docs/ROUTING_PROFILES.md",
         "docs/RELEASE.md",
+        "docs/site-assets/site.css",
+        "docs/site-assets/site.js",
         release_notes,
+        "scripts/build_docs.py",
         "scripts/release_assets.py",
         "scripts/release_agent.py",
         "tests/test_cli_profiles.py",
+        "tests/test_docs_site.py",
         "tests/test_evidence.py",
         "tests/test_profiles.py",
         "tests/test_public_api.py",
@@ -105,6 +111,7 @@ def check_release(tag: str | None = None) -> str:
         "tests/test_release_agent.py",
         "tests/test_schemas.py",
         ".github/release-request.example.json",
+        ".github/workflows/docs.yml",
         ".github/workflows/provider-benchmark.yml",
         ".github/workflows/python-api.yml",
         ".github/workflows/release-agent.yml",
@@ -247,6 +254,47 @@ def check_release(tag: str | None = None) -> str:
             "Run offline integration examples against the installed wheel",
         ),
         "Python API workflow",
+    )
+
+    require_fragments(
+        docs_workflow,
+        (
+            "name: Documentation site",
+            "python scripts/build_docs.py",
+            "pytest tests/test_docs_site.py",
+            "actions/upload-artifact@v7",
+            "actions/upload-pages-artifact@v5",
+            "include-hidden-files: true",
+            "actions/deploy-pages@v5",
+            "pages: write",
+            "id-token: write",
+            "name: github-pages",
+        ),
+        "documentation workflow",
+    )
+
+    require_fragments(
+        docs_builder,
+        (
+            "search.json",
+            "check_site(output, base_path)",
+            "documentation pages may load only the local site.js asset",
+            "sitemap.xml",
+            ".nojekyll",
+            'ROOT / "docs" / "site-assets" / "site.css"',
+            'ROOT / "docs" / "site-assets" / "site.js"',
+        ),
+        "documentation builder",
+    )
+
+    require_fragments(
+        pyproject,
+        (
+            'docs = [',
+            '"Markdown>=3.8,<4"',
+            'Documentation = "https://xioaisolutions.github.io/CrumbContext/"',
+        ),
+        "documentation package metadata",
     )
 
     require_fragments(

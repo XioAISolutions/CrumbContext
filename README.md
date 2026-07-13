@@ -20,9 +20,9 @@
 <p align="center">
   <a href="https://codespaces.new/XioAISolutions/CrumbContext?quickstart=1"><strong>Open in Codespaces</strong></a>
   ·
-  <a href="#-30-second-proof"><strong>Run the proof</strong></a>
+  <a href="#30-second-proof"><strong>Run the proof</strong></a>
   ·
-  <a href="#-provider-measured-counterfactuals"><strong>Measure a provider</strong></a>
+  <a href="#provider-measured-counterfactuals"><strong>Measure a provider</strong></a>
   ·
   <a href="docs/ARCHITECTURE.md"><strong>Architecture</strong></a>
   ·
